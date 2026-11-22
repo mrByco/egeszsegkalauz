@@ -6,13 +6,16 @@ namespace egeszsegkalauz.tests.Data;
 public class TimestampTests
 {
     [SetUp]
-    public Task ResetAsync() => PostgresFixture.ResetAsync();
+    public async Task ResetAsync()
+    {
+        await PostgresFixture.ResetAsync();
+    }
 
     [Test]
     public async Task InsertStampsBothAndUpdateMovesOnlyUpdatedAt()
     {
         await using var db = PostgresFixture.CreateDbContext();
-        var user = new User { Email = "a@example.com", DisplayName = "A" };
+        var user = new User { Email = "a@example.com", PasswordHash = "hash" };
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
@@ -20,7 +23,7 @@ public class TimestampTests
         Assert.That(user.UpdatedAt, Is.EqualTo(user.CreatedAt));
         var created = user.CreatedAt;
 
-        user.DisplayName = "B";
+        user.LastLoginAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
         Assert.That(user.CreatedAt, Is.EqualTo(created));
@@ -32,8 +35,8 @@ public class TimestampTests
     {
         await using var db = PostgresFixture.CreateDbContext();
         db.Users.AddRange(
-            new User { Email = "a@example.com", DisplayName = "A" },
-            new User { Email = "b@example.com", DisplayName = "B" });
+            new User { Email = "a@example.com", PasswordHash = "hash" },
+            new User { Email = "b@example.com", PasswordHash = "hash" });
         await db.SaveChangesAsync();
 
         var ids = await db.Users.Select(x => x.Nanoid).ToListAsync();

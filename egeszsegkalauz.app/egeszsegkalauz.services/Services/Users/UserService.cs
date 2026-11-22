@@ -4,12 +4,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace egeszsegkalauz.services.Services.Users;
 
-public class UserService(AppDbContext db) : IUserService
+public class UserService : IUserService
 {
-    public Task<List<UserDto>> ListAsync(CancellationToken cancellationToken) =>
-        db.Users
+    private readonly AppDbContext db;
+
+    public UserService(AppDbContext db)
+    {
+        this.db = db;
+    }
+
+    public async Task<List<UserDto>> ListAsync(CancellationToken cancellationToken)
+    {
+        return await db.Users
             .AsNoTracking()
-            .OrderBy(x => x.DisplayName)
-            .Select(x => new UserDto(x.Nanoid, x.Email, x.DisplayName, x.CreatedAt))
+            .OrderBy(x => x.Email)
+            .Select(x => new UserDto
+            {
+                Nanoid = x.Nanoid,
+                Email = x.Email,
+                CreatedAt = x.CreatedAt,
+                LastLoginAt = x.LastLoginAt,
+            })
             .ToListAsync(cancellationToken);
+    }
 }

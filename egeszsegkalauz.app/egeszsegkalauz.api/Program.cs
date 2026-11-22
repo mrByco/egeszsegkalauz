@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using egeszsegkalauz.api.Auth;
 using egeszsegkalauz.api.Extensions;
 using egeszsegkalauz.services;
 using Microsoft.AspNetCore.Mvc;
@@ -12,13 +13,7 @@ builder.Services.AddAppSwagger();
 
 await using var devDatabase = await builder.AddAppDatabaseAsync();
 builder.Services.AddAppServices();
-
-var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [];
-builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
-    .WithOrigins(corsOrigins)
-    .AllowAnyHeader()
-    .AllowAnyMethod()
-    .AllowCredentials()));
+builder.Services.AddAppAuthentication();
 
 var app = builder.Build();
 
@@ -34,8 +29,11 @@ else
     app.UseHttpsRedirection();
 }
 
-app.UseCors();
-app.UseAuthorization();
+app.UseAppAuthentication();
 app.MapControllers();
+
+// In development `ng serve` hosts the client and proxies /api here.
+if (!app.Environment.IsDevelopment())
+    app.MapClientApp();
 
 app.Run();

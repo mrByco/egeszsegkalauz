@@ -3,7 +3,7 @@
 
 export interface UserDto {
   createdAt: string;
-  displayName: string;
   email: string;
+  lastLoginAt?: string | null;
   nanoid: string;
 }

@@ -10,16 +10,16 @@ public sealed class DevDatabase : IAsyncDisposable
 
     private const string ContainerDumpPath = "/tmp/dev.dump";
 
-    private readonly PostgreSqlContainer _container;
-    private readonly DevDatabaseOptions _options;
+    private readonly PostgreSqlContainer container;
+    private readonly DevDatabaseOptions options;
 
     private DevDatabase(PostgreSqlContainer container, DevDatabaseOptions options)
     {
-        _container = container;
-        _options = options;
+        this.container = container;
+        this.options = options;
     }
 
-    public string ConnectionString => _container.GetConnectionString();
+    public string ConnectionString => container.GetConnectionString();
 
     public static async Task<DevDatabase> StartAsync(DevDatabaseOptions options, string contentRoot)
     {
@@ -64,7 +64,7 @@ public sealed class DevDatabase : IAsyncDisposable
         {
             try
             {
-                await _container.StartAsync();
+                await container.StartAsync();
                 return;
             }
             catch (Exception e) when (attempt < maxAttempts)
@@ -76,7 +76,7 @@ public sealed class DevDatabase : IAsyncDisposable
             {
                 throw new InvalidOperationException(
                     $"Could not start the dev PostgreSQL container after {maxAttempts} attempts. Is Docker " +
-                    $"running, and is port {_options.HostPort} free? (check `docker ps`)", e);
+                    $"running, and is port {options.HostPort} free? (check `docker ps`)", e);
             }
         }
     }
@@ -84,12 +84,12 @@ public sealed class DevDatabase : IAsyncDisposable
     private async Task RestoreAsync(string dumpPath)
     {
         Log($"Restoring {dumpPath}...");
-        await _container.CopyAsync(await File.ReadAllBytesAsync(dumpPath), ContainerDumpPath);
+        await container.CopyAsync(await File.ReadAllBytesAsync(dumpPath), ContainerDumpPath);
 
         // Without --if-exists, --clean fails on an empty database and the exit code becomes useless.
-        var result = await _container.ExecAsync(
+        var result = await container.ExecAsync(
         [
-            "pg_restore", "-U", "postgres", "-d", _options.Database,
+            "pg_restore", "-U", "postgres", "-d", options.Database,
             "--clean", "--if-exists", "--no-owner", "--no-privileges", ContainerDumpPath,
         ]);
 
@@ -106,10 +106,13 @@ public sealed class DevDatabase : IAsyncDisposable
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT to_regclass('public.\"__EFMigrationsHistory\"') IS NOT NULL";
-        return (bool)(await command.ExecuteScalarAsync())!;
+        return await command.ExecuteScalarAsync() is true;
     }
 
     private static void Log(string message) => Console.WriteLine($"[dev-db] {message}");
 
-    public ValueTask DisposeAsync() => _container.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        await container.DisposeAsync();
+    }
 }

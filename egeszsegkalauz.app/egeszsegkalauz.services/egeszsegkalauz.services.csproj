@@ -4,4 +4,8 @@
     <ProjectReference Include="..\egeszsegkalauz.data\egeszsegkalauz.data.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+  </ItemGroup>
+
 </Project>

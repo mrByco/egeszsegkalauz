@@ -3,19 +3,36 @@ using Microsoft.EntityFrameworkCore;
 
 namespace egeszsegkalauz.data;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext : DbContext
 {
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+    {
+    }
+
     public DbSet<User> Users => Set<User>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasPostgresExtension("citext");
+
         foreach (var entityType in modelBuilder.Model.GetEntityTypes()
                      .Where(t => typeof(Entity).IsAssignableFrom(t.ClrType)))
         {
             modelBuilder.Entity(entityType.ClrType).HasIndex(nameof(Entity.Nanoid)).IsUnique();
         }
 
-        modelBuilder.Entity<User>().HasIndex(x => x.Email).IsUnique();
+        modelBuilder.Entity<User>(user =>
+        {
+            user.Property(x => x.Email).HasColumnType("citext");
+            user.HasIndex(x => x.Email).IsUnique();
+        });
+
+        modelBuilder.Entity<RefreshToken>(token =>
+        {
+            token.HasIndex(x => x.TokenHash).IsUnique();
+            token.HasOne(x => x.User).WithMany().OnDelete(DeleteBehavior.Cascade);
+        });
     }
 
     // The parameterless overloads delegate to these, so overriding them too would stamp twice.

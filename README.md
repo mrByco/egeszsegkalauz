@@ -21,12 +21,16 @@ dev-db.sh                      dump / reset / psql for the dev database
 ## Run locally
 
 ```bash
-# backend — http://localhost:5130, Swagger UI at /swagger
+# backend — http://localhost:5130
 cd egeszsegkalauz.app/egeszsegkalauz.api && dotnet run --launch-profile http
 
-# frontend — http://localhost:4200
+# frontend — open http://localhost:4200
 cd client && npm install && npm start
 ```
+
+Use the app on http://localhost:4200 only: `ng serve` proxies `/api` and `/swagger` to the backend
+(`client/proxy.conf.json`), so client and API share one origin and cookies work without CORS. The
+client calls the API with relative URLs. Swagger UI: http://localhost:4200/swagger.
 
 ### The dev database
 
@@ -37,6 +41,8 @@ In Development with an empty `ConnectionStrings:Default`, the API starts a throw
 1. if `egeszsegkalauz.app/dev-data/dev.dump` exists, it is restored (`pg_restore` runs inside the container);
 2. EF migrations are applied;
 3. `DevDataSeeder` fills the database **if it is still empty**.
+
+Seeded users: `admin@egeszsegkalauz.local` and `teszt.elek@egeszsegkalauz.local`, password `Jelszo123!`.
 
 The container is removed when the API stops, so **every restart resets the data**. To keep a data set:
 
@@ -52,6 +58,24 @@ string: `dotnet user-secrets set ConnectionStrings:Default "Host=...;..."` in `e
 
 The first EF start logs one `fail: ... SELECT "MigrationId" ...` line: EF probing a
 `__EFMigrationsHistory` table that does not exist yet. That is expected.
+
+## Authentication
+
+`POST /api/auth/login` checks the password (ASP.NET Core Identity's `PasswordHasher`) and sets two
+`HttpOnly; Secure; SameSite=Strict` cookies scoped to `/api`:
+
+- `access_token`: a JWT (HS256) valid for 15 minutes; its `sub` claim is the user's nanoid;
+- `refresh_token`: a random 256-bit value valid for 30 days. Only its SHA-256 hash is stored, in
+  `RefreshTokens`.
+
+The client never refreshes anything itself. When a request arrives without a valid access token but
+with a refresh token, `TokenRefreshMiddleware` rotates the refresh token and serves the request with a
+fresh pair of cookies. Requests that race with the same refresh token within 30 seconds get a new access
+token only. A rotated refresh token presented after that is treated as stolen, and every session of
+that user is revoked. `POST /api/auth/logout` revokes the refresh token and clears the cookies, and
+`GET /api/auth/me` returns the signed-in user. Lifetimes are set in the `Auth` config section.
+
+Every dev DB reset drops all refresh tokens, so after a backend restart you have to log in again.
 
 ## Common tasks
 
@@ -70,12 +94,16 @@ cd client && npm test
 `client/src/app/api/` is generated — never edit it by hand. Call endpoints through `Api`:
 `inject(Api).invoke(usersList)`.
 
-## Docker images
+## Docker image
+
+One image serves both: the API on `/api`, the built Angular app from `wwwroot` for everything else
+(unknown client routes fall back to `index.html`, unknown `/api` routes are 404).
 
 ```bash
-docker build -t egeszsegkalauz-api egeszsegkalauz.app                  # needs ConnectionStrings__Default at runtime
-docker build --build-arg API_URL=https://api.example.com -t egeszsegkalauz-client client
+docker build -t egeszsegkalauz .
+docker run -p 8080:8080 -e ConnectionStrings__Default="Host=...;..." egeszsegkalauz
 ```
 
-Outside Development the API refuses to start without `ConnectionStrings__Default`, and
-`Cors__Origins__0=...` must list the frontend origin.
+Outside Development the API refuses to start without `ConnectionStrings__Default` and an
+`Auth__SigningKey` of at least 32 characters (e.g. `openssl rand -base64 48`). Swagger is only served
+in Development.

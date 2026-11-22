@@ -1,0 +1,9 @@
+.git/
+**/bin/
+**/obj/
+**/node_modules/
+client/dist/
+client/.angular/
+egeszsegkalauz.app/dev-data/
+egeszsegkalauz.app/egeszsegkalauz.tests/
+auto-grader-master.zip

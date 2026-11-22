@@ -11,17 +11,23 @@
     } @else {
       <table class="table">
         <thead>
-          <tr><th>Név</th><th>E-mail</th><th>Létrehozva</th></tr>
+          <tr>
+            <th>E-mail</th>
+            <th>Létrehozva</th>
+            <th>Utolsó belépés</th>
+          </tr>
         </thead>
         <tbody>
           @for (user of users.value(); track user.nanoid) {
             <tr>
-              <td>{{ user.displayName }}</td>
               <td>{{ user.email }}</td>
               <td>{{ user.createdAt | date: 'yyyy.MM.dd. HH:mm' }}</td>
+              <td>{{ (user.lastLoginAt | date: 'yyyy.MM.dd. HH:mm') ?? '–' }}</td>
             </tr>
           } @empty {
-            <tr><td colspan="3">Nincs felhasználó.</td></tr>
+            <tr>
+              <td colspan="3">Nincs felhasználó.</td>
+            </tr>
           }
         </tbody>
       </table>
