@@ -9,5 +9,17 @@ export type { AuthLogout$Params as AuthLogout$Params } from './fn/auth/auth-logo
 export { authLogout as authLogout } from './fn/auth/auth-logout';
 export type { AuthMe$Params as AuthMe$Params } from './fn/auth/auth-me';
 export { authMe as authMe } from './fn/auth/auth-me';
+export type { RolesList$Params as RolesList$Params } from './fn/roles/roles-list';
+export { rolesList as rolesList } from './fn/roles/roles-list';
+export type { RolesCreate$Params as RolesCreate$Params } from './fn/roles/roles-create';
+export { rolesCreate as rolesCreate } from './fn/roles/roles-create';
+export type { RolesGet$Params as RolesGet$Params } from './fn/roles/roles-get';
+export { rolesGet as rolesGet } from './fn/roles/roles-get';
+export type { RolesUpdate$Params as RolesUpdate$Params } from './fn/roles/roles-update';
+export { rolesUpdate as rolesUpdate } from './fn/roles/roles-update';
+export type { RolesDelete$Params as RolesDelete$Params } from './fn/roles/roles-delete';
+export { rolesDelete as rolesDelete } from './fn/roles/roles-delete';
 export type { UsersList$Params as UsersList$Params } from './fn/users/users-list';
 export { usersList as usersList } from './fn/users/users-list';
+export type { UsersSetRoles$Params as UsersSetRoles$Params } from './fn/users/users-set-roles';
+export { usersSetRoles as usersSetRoles } from './fn/users/users-set-roles';

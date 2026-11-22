@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 
+import { Permission } from '../api/models';
 import { AuthService, LOGIN_PATH } from './auth.service';
 
 export const authGuard: CanActivateFn = (_, state) =>
@@ -10,3 +11,7 @@ export const authGuard: CanActivateFn = (_, state) =>
 
 export const guestGuard: CanActivateFn = () =>
   inject(AuthService).user() ? inject(Router).createUrlTree(['/']) : true;
+
+export function permissionGuard(permission: Permission): CanActivateFn {
+  return () => (inject(AuthService).can(permission) ? true : inject(Router).createUrlTree(['/']));
+}

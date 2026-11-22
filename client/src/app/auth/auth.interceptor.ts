@@ -17,6 +17,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       if (sessionEnded) {
         void auth.sessionExpired();
       }
+      const permissionsChanged =
+        error instanceof HttpErrorResponse && error.status === HttpStatusCode.Forbidden;
+      if (permissionsChanged) {
+        void auth.loadCurrentUser();
+      }
       return throwError(() => error);
     }),
   );

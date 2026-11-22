@@ -4,6 +4,7 @@ using System.Text;
 using egeszsegkalauz.data;
 using egeszsegkalauz.data.Models;
 using egeszsegkalauz.services.DTO;
+using egeszsegkalauz.services.Services.Permissions;
 using Npgsql;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -22,12 +23,15 @@ public class AuthService : IAuthService
     private readonly AppDbContext db;
     private readonly AuthOptions authOptions;
     private readonly TimeProvider timeProvider;
+    private readonly IPermissionService permissionService;
 
-    public AuthService(AppDbContext db, IOptions<AuthOptions> authOptions, TimeProvider timeProvider)
+    public AuthService(AppDbContext db, IOptions<AuthOptions> authOptions, TimeProvider timeProvider,
+        IPermissionService permissionService)
     {
         this.db = db;
         this.authOptions = authOptions.Value;
         this.timeProvider = timeProvider;
+        this.permissionService = permissionService;
     }
 
     private DateTime Now => timeProvider.GetUtcNow().UtcDateTime;
@@ -112,10 +116,8 @@ public class AuthService : IAuthService
 
     public async Task<CurrentUserDto?> GetCurrentUserAsync(string userNanoid, CancellationToken cancellationToken)
     {
-        return await db.Users
-            .Where(x => x.Nanoid == userNanoid)
-            .Select(x => new CurrentUserDto { Nanoid = x.Nanoid, Email = x.Email })
-            .SingleOrDefaultAsync(cancellationToken);
+        var user = await db.Users.SingleOrDefaultAsync(x => x.Nanoid == userNanoid, cancellationToken);
+        return user is null ? null : await ToCurrentUserDtoAsync(user, cancellationToken);
     }
 
     private async Task<LoginResult> StartSessionAsync(User user, CancellationToken cancellationToken)
@@ -127,7 +129,7 @@ public class AuthService : IAuthService
         return new LoginResult
         {
             Tokens = new AuthTokens { Access = CreateAccessToken(user), Refresh = refreshToken },
-            User = ToCurrentUserDto(user),
+            User = await ToCurrentUserDtoAsync(user, cancellationToken),
         };
     }
 
@@ -182,5 +184,9 @@ public class AuthService : IAuthService
     private static string Hash(string refreshToken) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
 
-    private static CurrentUserDto ToCurrentUserDto(User user) => new() { Nanoid = user.Nanoid, Email = user.Email };
+    private async Task<CurrentUserDto> ToCurrentUserDtoAsync(User user, CancellationToken cancellationToken)
+    {
+        var permissions = await permissionService.GetPermissionsAsync(user.Nanoid, cancellationToken);
+        return new CurrentUserDto { Nanoid = user.Nanoid, Email = user.Email, Permissions = permissions.Order().ToList() };
+    }
 }

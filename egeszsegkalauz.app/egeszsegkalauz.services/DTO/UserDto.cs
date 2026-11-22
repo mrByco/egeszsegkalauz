@@ -6,4 +6,5 @@ public class UserDto
     public required string Email { get; set; }
     public required DateTime CreatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
+    public required List<RoleSummaryDto> Roles { get; set; }
 }

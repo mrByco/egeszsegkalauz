@@ -1,0 +1,89 @@
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+    <div class="flex items-center justify-between">
+      <h1 class="card-title">Szerepkörök</h1>
+      @if (auth.can('RolesEdit')) {
+        <a class="btn btn-primary btn-sm" routerLink="uj">Új szerepkör</a>
+      }
+    </div>
+
+    @if (roles.isLoading()) {
+      <span class="loading loading-spinner"></span>
+    } @else if (roles.error()) {
+      <div role="alert" class="alert alert-error">A szerepkörök betöltése nem sikerült.</div>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Név</th>
+            <th>Jogosultságok</th>
+            <th>Felhasználók</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (role of roles.value(); track role.nanoid) {
+            <tr>
+              <td class="font-medium">
+                {{ role.name }}
+                @if (role.isSystem) {
+                  <span class="badge badge-ghost badge-sm ml-1">beépített</span>
+                }
+              </td>
+              <td>
+                @if (role.isSystem) {
+                  <span class="opacity-70">Minden jogosultság</span>
+                } @else {
+                  <ul class="text-sm">
+                    @for (permission of role.permissions; track permission) {
+                      <li>{{ permissionLabels[permission] }}</li>
+                    } @empty {
+                      <li class="opacity-50">–</li>
+                    }
+                  </ul>
+                }
+              </td>
+              <td>{{ role.userCount }}</td>
+              <td class="text-right whitespace-nowrap">
+                @if (auth.can('RolesEdit') && !role.isSystem) {
+                  <a class="btn btn-ghost btn-sm" [routerLink]="role.nanoid">Szerkesztés</a>
+                  <button
+                    class="btn btn-ghost btn-sm text-error"
+                    type="button"
+                    (click)="confirmDelete(role)"
+                  >
+                    Törlés
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+<dialog #deleteDialog class="modal">
+  <div class="modal-box">
+    <h2 class="text-lg font-semibold">Szerepkör törlése</h2>
+    <p class="mt-2">
+      Biztosan törlöd a(z) <strong>{{ deleting()?.name }}</strong> szerepkört?
+      @if (deleting()?.userCount; as count) {
+        {{ count }} felhasználótól elveszi.
+      }
+    </p>
+
+    @if (error(); as message) {
+      <div role="alert" class="alert alert-error mt-3">{{ message }}</div>
+    }
+
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn btn-ghost">Mégse</button>
+      </form>
+      <button class="btn btn-error" type="button" (click)="delete()">Törlés</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>Bezárás</button></form>
+</dialog>

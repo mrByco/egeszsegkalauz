@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { authGuard, guestGuard } from './auth/auth.guards';
+import { authGuard, guestGuard, permissionGuard } from './auth/auth.guards';
 import { LOGIN_PATH, REGISTER_PATH } from './auth/auth.service';
 
 export const routes: Routes = [
@@ -13,6 +13,32 @@ export const routes: Routes = [
     path: REGISTER_PATH.slice(1),
     canActivate: [guestGuard],
     loadComponent: () => import('./pages/register/register').then((m) => m.Register),
+  },
+  {
+    path: 'admin',
+    canActivate: [authGuard],
+    children: [
+      {
+        path: 'felhasznalok',
+        canActivate: [permissionGuard('UsersView')],
+        loadComponent: () => import('./pages/admin/users/users').then((m) => m.Users),
+      },
+      {
+        path: 'szerepkorok',
+        canActivate: [permissionGuard('RolesView')],
+        loadComponent: () => import('./pages/admin/roles/roles').then((m) => m.Roles),
+      },
+      {
+        path: 'szerepkorok/uj',
+        canActivate: [permissionGuard('RolesEdit')],
+        loadComponent: () => import('./pages/admin/role-edit/role-edit').then((m) => m.RoleEdit),
+      },
+      {
+        path: 'szerepkorok/:nanoid',
+        canActivate: [permissionGuard('RolesEdit')],
+        loadComponent: () => import('./pages/admin/role-edit/role-edit').then((m) => m.RoleEdit),
+      },
+    ],
   },
   {
     path: '',

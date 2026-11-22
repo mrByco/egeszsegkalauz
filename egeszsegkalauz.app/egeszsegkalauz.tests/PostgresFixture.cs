@@ -38,5 +38,6 @@ public class PostgresFixture
     {
         await using var db = CreateDbContext();
         await db.Database.ExecuteSqlRawAsync("TRUNCATE \"Users\" RESTART IDENTITY CASCADE");
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM \"Roles\" WHERE NOT \"IsSystem\"");
     }
 }

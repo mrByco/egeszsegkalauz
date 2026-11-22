@@ -3,7 +3,12 @@
 
 export type { CurrentUserDto } from './models/current-user-dto';
 export type { LoginRequest } from './models/login-request';
+export type { Permission } from './models/permission';
 export type { ProblemDetails } from './models/problem-details';
 export type { RegisterRequest } from './models/register-request';
+export type { RoleDto } from './models/role-dto';
+export type { RoleSummaryDto } from './models/role-summary-dto';
+export type { SaveRoleRequest } from './models/save-role-request';
+export type { SetUserRolesRequest } from './models/set-user-roles-request';
 export type { UserDto } from './models/user-dto';
 export type { ValidationProblemDetails } from './models/validation-problem-details';

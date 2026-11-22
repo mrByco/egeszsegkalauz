@@ -1,6 +1,7 @@
 using egeszsegkalauz.data;
 using egeszsegkalauz.data.Dev;
 using egeszsegkalauz.data.Extensions;
+using egeszsegkalauz.services.Services.Users;
 using Microsoft.EntityFrameworkCore;
 
 namespace egeszsegkalauz.api.Extensions;
@@ -37,5 +38,12 @@ public static class DatabaseStartupExtensions
 
         if (seedDevData)
             await DevDataSeeder.SeedAsync(db);
+
+        var adminEmail = app.Configuration["Bootstrap:AdminEmail"];
+        if (!string.IsNullOrWhiteSpace(adminEmail)
+            && await scope.ServiceProvider.GetRequiredService<IUserService>().GrantAdminIfNoneAsync(adminEmail, CancellationToken.None))
+        {
+            app.Logger.LogInformation("Granted the Admin role to {Email}, as no user had it.", adminEmail);
+        }
     }
 }

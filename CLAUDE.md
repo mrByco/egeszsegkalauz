@@ -28,10 +28,17 @@ and comments are English.
 - `client/src/app/api/` is generated: after any controller or DTO change run `./regen-api.sh`.
 - Client and API share one origin (dev: `ng serve` proxy on :4200; prod: the API serves the client
   from `wwwroot`). Keep API routes under `/api`, call them with relative URLs, and don't add CORS.
+- Authorization is permission-based: guard endpoints with `[HasPermission(Permission.X)]`, never with
+  role names. On the client use `auth.can('X')` and `permissionGuard('X')`.
+- Services signal "not found" and "conflict" by throwing `NotFoundException` / `ConflictException`;
+  `ServiceExceptionHandler` turns them into 404/409 ProblemDetails. Controllers don't catch them.
 - Dev fixtures belong in `DevDataSeeder`, or in a `dev-data/dev.dump` made with `./dev-db.sh dump`.
 
 ## Gotchas
 
+- Once an action has any `[ProducesResponseType]` (including class-level ones), ASP.NET stops inferring
+  the 200 response from the return type: add `[ProducesResponseType<T>(StatusCodes.Status200OK)]`, or
+  the generated client returns `void`.
 - Docker must be running: the dev database and the backend tests both use Testcontainers.
 - Every backend restart resets the dev database unless `DevDatabase:PersistentVolume` is set.
 - The dev DB binds the fixed host port 54320; a force-killed run holds it for a few seconds (the API

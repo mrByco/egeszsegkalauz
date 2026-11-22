@@ -10,6 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers(options => options.Filters.Add(new ProducesAttribute("application/json")))
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddAppSwagger();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ServiceExceptionHandler>();
 
 await using var devDatabase = await builder.AddAppDatabaseAsync();
 builder.Services.AddAppServices();
@@ -18,6 +20,8 @@ builder.Services.AddAppAuthentication();
 var app = builder.Build();
 
 await app.InitializeDatabaseAsync(seedDevData: devDatabase is not null);
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

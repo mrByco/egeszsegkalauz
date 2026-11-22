@@ -80,6 +80,25 @@ that user is revoked. `POST /api/auth/logout` revokes the refresh token and clea
 
 Every dev DB reset drops all refresh tokens, so after a backend restart you have to log in again.
 
+## Roles and permissions
+
+Permissions are the members of the `Permission` enum (`egeszsegkalauz.data/Models/Permission.cs`).
+Roles are created in the admin panel (`/admin/szerepkorok`) as named sets of permissions, and a user
+can hold any number of roles (`/admin/felhasznalok`); they get the union of their permissions.
+Endpoints declare what they need with `[HasPermission(Permission.X)]`. The check reads the user's
+roles from the database on every request, so role changes apply immediately. Missing permission → 403.
+
+The built-in `Admin` role (created by a migration) always has every permission, including ones added
+later. It cannot be edited or deleted, and the last user holding it cannot lose it. In development,
+`admin@egeszsegkalauz.local` is an admin and `teszt.elek@egeszsegkalauz.local` has a read-only
+`Megtekintő` role. In production, set `Bootstrap__AdminEmail`: at startup, if nobody has the Admin
+role yet, that (already registered) user gets it.
+
+Adding a permission: add the enum member, a Hungarian label in
+`client/src/app/auth/permission-labels.ts` (the build fails without it), and run `./regen-api.sh`.
+Permissions are stored by name, so renaming or removing a member needs a migration that rewrites
+`Roles.Permissions`.
+
 ## Common tasks
 
 ```bash

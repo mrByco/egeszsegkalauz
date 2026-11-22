@@ -13,9 +13,14 @@ public static class DevDataSeeder
         if (await db.Users.AnyAsync(cancellationToken))
             return;
 
-        db.Users.AddRange(
-            CreateUser("admin@egeszsegkalauz.local"),
-            CreateUser("teszt.elek@egeszsegkalauz.local"));
+        var admin = CreateUser("admin@egeszsegkalauz.local");
+        admin.Roles.Add(await db.Roles.SingleAsync(x => x.IsSystem, cancellationToken));
+
+        var viewer = new Role { Name = "Megtekintő", Permissions = [Permission.UsersView, Permission.RolesView] };
+        var tester = CreateUser("teszt.elek@egeszsegkalauz.local");
+        tester.Roles.Add(viewer);
+
+        db.Users.AddRange(admin, tester);
 
         await db.SaveChangesAsync(cancellationToken);
         Console.WriteLine($"[dev-db] Seeded dev users (password: {DevPassword}).");

@@ -1,5 +1,6 @@
 using egeszsegkalauz.services.Services.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -39,6 +40,8 @@ public static class AuthenticationExtensions
             });
 
         services.AddAuthorization();
+        services.AddHttpContextAccessor();
+        services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
         return services;
     }
 

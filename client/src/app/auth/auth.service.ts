@@ -1,9 +1,9 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { Api } from '../api/api';
 import { authLogin, authLogout, authMe, authRegister } from '../api/functions';
-import { CurrentUserDto } from '../api/models';
+import { CurrentUserDto, Permission } from '../api/models';
 
 export const LOGIN_PATH = '/bejelentkezes';
 export const REGISTER_PATH = '/regisztracio';
@@ -14,6 +14,11 @@ export class AuthService {
   private readonly router = inject(Router);
 
   readonly user = signal<CurrentUserDto | null>(null);
+  private readonly permissions = computed(() => new Set(this.user()?.permissions ?? []));
+
+  can(permission: Permission): boolean {
+    return this.permissions().has(permission);
+  }
 
   async loadCurrentUser(): Promise<void> {
     try {

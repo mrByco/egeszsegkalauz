@@ -5,6 +5,19 @@ import { Router, RouterLink } from '@angular/router';
 
 import { AuthService, REGISTER_PATH } from '../../auth/auth.service';
 
+// Production builds define ngDevMode as false, which drops the dev credentials from the bundle.
+const QUICK_LOGINS =
+  typeof ngDevMode === 'undefined' || ngDevMode
+    ? [
+        { label: 'Admin', email: 'admin@egeszsegkalauz.local', password: 'Jelszo123!' },
+        {
+          label: 'Teszt Elek (Megtekintő)',
+          email: 'teszt.elek@egeszsegkalauz.local',
+          password: 'Jelszo123!',
+        },
+      ]
+    : [];
+
 @Component({
   selector: 'app-login',
   imports: [ReactiveFormsModule, RouterLink],
@@ -17,6 +30,9 @@ export class Login {
   readonly returnUrl = input<string>();
 
   protected readonly registerPath = REGISTER_PATH;
+  protected readonly quickLogins = ['localhost', '127.0.0.1'].includes(location.hostname)
+    ? QUICK_LOGINS
+    : [];
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     email: ['', [Validators.required, Validators.email]],
@@ -31,10 +47,18 @@ export class Login {
       return;
     }
 
+    const { email, password } = this.form.getRawValue();
+    await this.signIn(email, password);
+  }
+
+  protected async quickLogin(email: string, password: string): Promise<void> {
+    await this.signIn(email, password);
+  }
+
+  private async signIn(email: string, password: string): Promise<void> {
     this.submitting.set(true);
     this.error.set(null);
     try {
-      const { email, password } = this.form.getRawValue();
       await this.auth.login(email, password);
       await this.router.navigateByUrl(this.returnUrl() ?? '/');
     } catch (error) {

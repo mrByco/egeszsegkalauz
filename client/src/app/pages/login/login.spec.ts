@@ -48,7 +48,7 @@ describe('Login', () => {
       email: 'teszt.elek@egeszsegkalauz.local',
       password: 'Jelszo123!',
     });
-    request.flush({ nanoid: 'abc', email: 'teszt.elek@egeszsegkalauz.local' });
+    request.flush({ nanoid: 'abc', email: 'teszt.elek@egeszsegkalauz.local', permissions: [] });
     await fixture.whenStable();
 
     expect(TestBed.inject(AuthService).user()?.email).toBe('teszt.elek@egeszsegkalauz.local');
@@ -70,5 +70,22 @@ describe('Login', () => {
     await submit('nem-email', '');
 
     http.expectNone('/api/Auth/login');
+  });
+
+  it('signs in with a quick login button on localhost', async () => {
+    vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(Login);
+    await fixture.whenStable();
+
+    const button = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Admin'),
+    )!;
+    button.click();
+
+    const request = http.expectOne('/api/Auth/login');
+    expect(request.request.body).toEqual({
+      email: 'admin@egeszsegkalauz.local',
+      password: 'Jelszo123!',
+    });
   });
 });

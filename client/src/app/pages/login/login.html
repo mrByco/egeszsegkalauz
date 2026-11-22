@@ -43,5 +43,21 @@
       Még nincs fiókod?
       <a class="link link-primary" [routerLink]="registerPath">Regisztráció</a>
     </p>
+
+    @if (quickLogins.length) {
+      <div class="divider text-xs opacity-60">Gyors belépés (fejlesztői)</div>
+      <div class="flex flex-col gap-2">
+        @for (quick of quickLogins; track quick.email) {
+          <button
+            class="btn btn-outline btn-sm"
+            type="button"
+            [disabled]="submitting()"
+            (click)="quickLogin(quick.email, quick.password)"
+          >
+            {{ quick.label }}
+          </button>
+        }
+      </div>
+    }
   </form>
 </div>

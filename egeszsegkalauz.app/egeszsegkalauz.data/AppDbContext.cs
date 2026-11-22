@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Role> Roles => Set<Role>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -26,6 +27,14 @@ public class AppDbContext : DbContext
         {
             user.Property(x => x.Email).HasColumnType("citext");
             user.HasIndex(x => x.Email).IsUnique();
+        });
+
+        modelBuilder.Entity<Role>(role =>
+        {
+            role.Property(x => x.Name).HasColumnType("citext").HasMaxLength(100);
+            role.HasIndex(x => x.Name).IsUnique();
+            role.PrimitiveCollection(x => x.Permissions).ElementType(e => e.HasConversion<string>());
+            role.HasMany(x => x.Users).WithMany(x => x.Roles).UsingEntity("UserRoles");
         });
 
         modelBuilder.Entity<RefreshToken>(token =>

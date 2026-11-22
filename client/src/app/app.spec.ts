@@ -31,11 +31,25 @@ describe('App', () => {
     TestBed.inject(AuthService).user.set({
       nanoid: 'abc',
       email: 'teszt.elek@egeszsegkalauz.local',
+      permissions: [],
     });
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const header = (fixture.nativeElement as HTMLElement).querySelector('header');
     expect(header?.textContent).toContain('teszt.elek@egeszsegkalauz.local');
     expect(header?.textContent).toContain('Kijelentkezés');
+  });
+
+  it('shows admin links only for granted permissions', async () => {
+    TestBed.inject(AuthService).user.set({
+      nanoid: 'abc',
+      email: 'teszt.elek@egeszsegkalauz.local',
+      permissions: ['RolesView'],
+    });
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const nav = (fixture.nativeElement as HTMLElement).querySelector('nav');
+    expect(nav?.textContent).toContain('Szerepkörök');
+    expect(nav?.textContent).not.toContain('Felhasználók');
   });
 });

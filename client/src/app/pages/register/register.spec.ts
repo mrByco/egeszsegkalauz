@@ -48,7 +48,7 @@ describe('Register', () => {
 
     const request = http.expectOne('/api/Auth/register');
     expect(request.request.body).toEqual({ email: EMAIL, password: 'UjJelszo123' });
-    request.flush({ nanoid: 'abc', email: EMAIL });
+    request.flush({ nanoid: 'abc', email: EMAIL, permissions: [] });
     await fixture.whenStable();
 
     expect(TestBed.inject(AuthService).user()?.email).toBe(EMAIL);

@@ -1,6 +1,8 @@
 using egeszsegkalauz.data;
 using egeszsegkalauz.data.Dev;
+using egeszsegkalauz.data.Models;
 using egeszsegkalauz.services.Services.Auth;
+using egeszsegkalauz.services.Services.Permissions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
@@ -31,6 +33,7 @@ public class AuthServiceTests
         var result = await LoginAsync();
 
         Assert.That(result.User.Email, Is.EqualTo(Email));
+        Assert.That(result.User.Permissions, Is.EquivalentTo(new[] { Permission.UsersView, Permission.RolesView }));
         Assert.That(result.Tokens.Refresh, Is.Not.Null);
 
         await using var db = PostgresFixture.CreateDbContext();
@@ -133,6 +136,7 @@ public class AuthServiceTests
 
         Assert.That(result?.User.Email, Is.EqualTo("uj.felhasznalo@egeszsegkalauz.local"));
         Assert.That(result?.Tokens.Refresh, Is.Not.Null);
+        Assert.That(result?.User.Permissions, Is.Empty);
         Assert.That(await TryLoginAsync("uj.felhasznalo@egeszsegkalauz.local", "UjJelszo123"), Is.Not.Null);
     }
 
@@ -175,5 +179,5 @@ public class AuthServiceTests
     private static string RefreshTokenOf(AuthTokens? tokens) =>
         tokens?.Refresh?.Value ?? throw new AssertionException("No refresh token was issued.");
 
-    private AuthService CreateService(AppDbContext db) => new(db, Options.Create(AuthOptions), time);
+    private AuthService CreateService(AppDbContext db) => new(db, Options.Create(AuthOptions), time, new PermissionService(db));
 }
