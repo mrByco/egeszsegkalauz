@@ -1,0 +1,59 @@
+<div class="card mx-auto max-w-sm bg-base-100 shadow">
+  <form class="card-body" [formGroup]="form" (ngSubmit)="submit()">
+    <h1 class="card-title">Regisztráció</h1>
+
+    @if (error(); as message) {
+      <div role="alert" class="alert alert-error">{{ message }}</div>
+    }
+
+    <fieldset class="fieldset">
+      <label class="label" for="email">E-mail cím</label>
+      <input
+        id="email"
+        class="input w-full"
+        type="email"
+        autocomplete="email"
+        formControlName="email"
+      />
+      @if (form.controls.email.touched && form.controls.email.invalid) {
+        <p class="text-error">Adj meg egy érvényes e-mail címet.</p>
+      }
+
+      <label class="label" for="password">Jelszó</label>
+      <input
+        id="password"
+        class="input w-full"
+        type="password"
+        autocomplete="new-password"
+        formControlName="password"
+      />
+      @if (form.controls.password.touched && form.controls.password.invalid) {
+        <p class="text-error">A jelszó legalább {{ minPasswordLength }} karakter legyen.</p>
+      }
+
+      <label class="label" for="passwordConfirmation">Jelszó még egyszer</label>
+      <input
+        id="passwordConfirmation"
+        class="input w-full"
+        type="password"
+        autocomplete="new-password"
+        formControlName="passwordConfirmation"
+      />
+      @if (form.controls.passwordConfirmation.touched && form.hasError('passwordMismatch')) {
+        <p class="text-error">A két jelszó nem egyezik.</p>
+      }
+    </fieldset>
+
+    <button class="btn btn-primary mt-2" type="submit" [disabled]="submitting()">
+      @if (submitting()) {
+        <span class="loading loading-spinner loading-sm"></span>
+      }
+      Regisztráció
+    </button>
+
+    <p class="mt-2 text-center text-sm">
+      Már van fiókod?
+      <a class="link link-primary" [routerLink]="loginPath">Bejelentkezés</a>
+    </p>
+  </form>
+</div>

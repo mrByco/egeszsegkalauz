@@ -4,6 +4,7 @@ using System.Text;
 using egeszsegkalauz.data;
 using egeszsegkalauz.data.Models;
 using egeszsegkalauz.services.DTO;
+using Npgsql;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -31,6 +32,26 @@ public class AuthService : IAuthService
 
     private DateTime Now => timeProvider.GetUtcNow().UtcDateTime;
 
+    public async Task<LoginResult?> RegisterAsync(string email, string password, CancellationToken cancellationToken)
+    {
+        email = email.Trim();
+        if (await db.Users.AnyAsync(x => x.Email == email, cancellationToken))
+            return null;
+
+        var user = new User { Email = email, PasswordHash = "" };
+        user.PasswordHash = Hasher.HashPassword(user, password);
+        db.Users.Add(user);
+
+        try
+        {
+            return await StartSessionAsync(user, cancellationToken);
+        }
+        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            return null;
+        }
+    }
+
     public async Task<LoginResult?> LoginAsync(string email, string password, CancellationToken cancellationToken)
     {
         var user = await db.Users.SingleOrDefaultAsync(x => x.Email == email, cancellationToken);
@@ -47,15 +68,7 @@ public class AuthService : IAuthService
         if (verification == PasswordVerificationResult.SuccessRehashNeeded)
             user.PasswordHash = Hasher.HashPassword(user, password);
 
-        user.LastLoginAt = Now;
-        var refreshToken = AddRefreshToken(user);
-        await db.SaveChangesAsync(cancellationToken);
-
-        return new LoginResult
-        {
-            Tokens = new AuthTokens { Access = CreateAccessToken(user), Refresh = refreshToken },
-            User = ToCurrentUserDto(user),
-        };
+        return await StartSessionAsync(user, cancellationToken);
     }
 
     public async Task<AuthTokens?> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
@@ -103,6 +116,19 @@ public class AuthService : IAuthService
             .Where(x => x.Nanoid == userNanoid)
             .Select(x => new CurrentUserDto { Nanoid = x.Nanoid, Email = x.Email })
             .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<LoginResult> StartSessionAsync(User user, CancellationToken cancellationToken)
+    {
+        user.LastLoginAt = Now;
+        var refreshToken = AddRefreshToken(user);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new LoginResult
+        {
+            Tokens = new AuthTokens { Access = CreateAccessToken(user), Refresh = refreshToken },
+            User = ToCurrentUserDto(user),
+        };
     }
 
     private async Task<bool> TryClaimRotationAsync(RefreshToken token, CancellationToken cancellationToken)

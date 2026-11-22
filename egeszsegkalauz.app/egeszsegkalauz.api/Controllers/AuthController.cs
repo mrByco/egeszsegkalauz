@@ -17,6 +17,20 @@ public class AuthController : ControllerBase
         this.authService = authService;
     }
 
+    [HttpPost("register")]
+    [ProducesResponseType<CurrentUserDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<CurrentUserDto>> Register(RegisterRequest request, CancellationToken cancellationToken)
+    {
+        var result = await authService.RegisterAsync(request.Email, request.Password, cancellationToken);
+        if (result is null)
+            return Conflict();
+
+        AuthCookies.Append(Response, result.Tokens);
+        return result.User;
+    }
+
     [HttpPost("login")]
     [ProducesResponseType<CurrentUserDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

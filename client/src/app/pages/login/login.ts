@@ -1,13 +1,13 @@
 import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { Component, inject, input, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
-import { AuthService } from '../../auth/auth.service';
+import { AuthService, REGISTER_PATH } from '../../auth/auth.service';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './login.html',
 })
 export class Login {
@@ -15,6 +15,8 @@ export class Login {
   private readonly router = inject(Router);
 
   readonly returnUrl = input<string>();
+
+  protected readonly registerPath = REGISTER_PATH;
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     email: ['', [Validators.required, Validators.email]],

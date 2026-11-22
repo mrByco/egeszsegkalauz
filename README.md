@@ -61,6 +61,9 @@ The first EF start logs one `fail: ... SELECT "MigrationId" ...` line: EF probin
 
 ## Authentication
 
+`POST /api/auth/register` creates an account (password of 8–128 characters; email addresses are not
+verified yet) and signs it in like a login does. A taken email, in any letter case, returns 409.
+
 `POST /api/auth/login` checks the password (ASP.NET Core Identity's `PasswordHasher`) and sets two
 `HttpOnly; Secure; SameSite=Strict` cookies scoped to `/api`:
 

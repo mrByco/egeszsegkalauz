@@ -4,6 +4,7 @@ namespace egeszsegkalauz.services.Services.Auth;
 
 public interface IAuthService
 {
+    Task<LoginResult?> RegisterAsync(string email, string password, CancellationToken cancellationToken);
     Task<LoginResult?> LoginAsync(string email, string password, CancellationToken cancellationToken);
     Task<AuthTokens?> RefreshAsync(string refreshToken, CancellationToken cancellationToken);
     Task LogoutAsync(string refreshToken, CancellationToken cancellationToken);

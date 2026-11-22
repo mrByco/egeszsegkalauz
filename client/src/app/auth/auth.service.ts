@@ -2,10 +2,11 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { Api } from '../api/api';
-import { authLogin, authLogout, authMe } from '../api/functions';
+import { authLogin, authLogout, authMe, authRegister } from '../api/functions';
 import { CurrentUserDto } from '../api/models';
 
 export const LOGIN_PATH = '/bejelentkezes';
+export const REGISTER_PATH = '/regisztracio';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -20,6 +21,10 @@ export class AuthService {
     } catch {
       this.user.set(null);
     }
+  }
+
+  async register(email: string, password: string): Promise<void> {
+    this.user.set(await this.api.invoke(authRegister, { body: { email, password } }));
   }
 
   async login(email: string, password: string): Promise<void> {

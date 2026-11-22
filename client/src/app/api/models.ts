@@ -4,4 +4,6 @@
 export type { CurrentUserDto } from './models/current-user-dto';
 export type { LoginRequest } from './models/login-request';
 export type { ProblemDetails } from './models/problem-details';
+export type { RegisterRequest } from './models/register-request';
 export type { UserDto } from './models/user-dto';
+export type { ValidationProblemDetails } from './models/validation-problem-details';

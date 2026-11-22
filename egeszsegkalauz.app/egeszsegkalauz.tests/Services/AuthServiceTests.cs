@@ -127,6 +127,23 @@ public class AuthServiceTests
     }
 
     [Test]
+    public async Task RegisterCreatesTheUserAndStartsASession()
+    {
+        var result = await RegisterAsync("  uj.felhasznalo@egeszsegkalauz.local ", "UjJelszo123");
+
+        Assert.That(result?.User.Email, Is.EqualTo("uj.felhasznalo@egeszsegkalauz.local"));
+        Assert.That(result?.Tokens.Refresh, Is.Not.Null);
+        Assert.That(await TryLoginAsync("uj.felhasznalo@egeszsegkalauz.local", "UjJelszo123"), Is.Not.Null);
+    }
+
+    [Test]
+    public async Task RegisterRejectsATakenEmailRegardlessOfCase()
+    {
+        Assert.That(await RegisterAsync(Email.ToUpperInvariant(), "UjJelszo123"), Is.Null);
+        Assert.That(await TryLoginAsync(Email, DevDataSeeder.DevPassword), Is.Not.Null);
+    }
+
+    [Test]
     public async Task UnknownRefreshTokensAreRejected()
     {
         Assert.That(await RefreshAsync("not-a-token"), Is.Null);
@@ -134,6 +151,12 @@ public class AuthServiceTests
 
     private async Task<LoginResult> LoginAsync() =>
         await TryLoginAsync(Email, DevDataSeeder.DevPassword) ?? throw new AssertionException("Login failed.");
+
+    private async Task<LoginResult?> RegisterAsync(string email, string password)
+    {
+        await using var db = PostgresFixture.CreateDbContext();
+        return await CreateService(db).RegisterAsync(email, password, CancellationToken.None);
+    }
 
     private async Task<LoginResult?> TryLoginAsync(string email, string password)
     {

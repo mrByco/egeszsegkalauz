@@ -8,7 +8,7 @@ namespace egeszsegkalauz.api.Auth;
 
 public class TokenRefreshMiddleware
 {
-    private static readonly PathString[] PathsThatManageTheirOwnTokens = ["/api/auth/login", "/api/auth/logout"];
+    private static readonly PathString[] PathsThatManageTheirOwnTokens = ["/api/auth/register", "/api/auth/login", "/api/auth/logout"];
 
     private readonly RequestDelegate next;
 
