@@ -1,0 +1,52 @@
+{
+  "languages": {
+    "HTML": {
+      "language_servers": ["...", "angular"],
+      "tab_size": 2,
+      "formatter": "prettier",
+      "format_on_save": "on"
+    },
+    "Angular": {
+      "language_servers": ["angular", "tailwindcss-language-server", "..."],
+      "tab_size": 2,
+      "prettier": { "allowed": true },
+      "formatter": "prettier",
+      "format_on_save": "on"
+    },
+    "TypeScript": {
+      "language_servers": ["vtsls", "angular", "..."],
+      "tab_size": 2,
+      "formatter": "prettier",
+      "format_on_save": "on"
+    },
+    "CSS": {
+      "tab_size": 2,
+      "formatter": "prettier",
+      "format_on_save": "on"
+    }
+  },
+  "lsp": {
+    "angular": {
+      "initialization_options": {
+        "force_strict_templates": true
+      }
+    },
+    "tailwindcss-language-server": {
+      "settings": {
+        "emmetCompletions": true,
+        "includeLanguages": {
+          "angular": "html",
+          "html": "html",
+          "css": "css",
+          "javascript": "javascript",
+          "typescript": "typescript"
+        },
+        "classAttributes": ["class", "ngClass", "[class]", "[ngClass]"]
+      }
+    }
+  },
+  "inlay_hints": {
+    "enabled": true,
+    "show_other_hints": true
+  }
+}

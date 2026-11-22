@@ -1,0 +1,21 @@
+{
+  "lsp": {
+    "roslyn-official": {
+      "settings": {
+        "razor_source_repository_root": "~/Repos/zed-csharp"
+      }
+    }
+  },
+  "lsp_document_colors": "none",
+  "languages": {
+    "CSharp": {
+      "language_servers": ["roslyn-official"]
+    }
+  },
+  "dap": {
+    "netcoredbg": {
+      "binary": "~/.local/bin/nethotdbg",
+      "args": ["--interpreter=vscode"]
+    }
+  }
+}

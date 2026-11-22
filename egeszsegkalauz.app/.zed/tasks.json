@@ -1,0 +1,23 @@
+[
+  {
+    "label": "dotnet test (all)",
+    "command": "dotnet",
+    "args": ["test", "egeszsegkalauz.slnx", "-clp:ErrorsOnly"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always"
+  },
+  {
+    "label": "dotnet test (current method)",
+    "command": "dotnet",
+    "args": ["test", "egeszsegkalauz.slnx", "--filter", "FullyQualifiedName~$ZED_SYMBOL"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always"
+  },
+  {
+    "label": "dotnet test (current file's class)",
+    "command": "dotnet",
+    "args": ["test", "egeszsegkalauz.slnx", "--filter", "FullyQualifiedName~$ZED_STEM"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always"
+  }
+]

@@ -1,0 +1,30 @@
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+    <h1 class="card-title">Felhasználók</h1>
+
+    @if (users.isLoading()) {
+      <span class="loading loading-spinner"></span>
+    } @else if (users.error()) {
+      <div role="alert" class="alert alert-error">
+        Nem érhető el a backend. Fut a <code>egeszsegkalauz.api</code>?
+      </div>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr><th>Név</th><th>E-mail</th><th>Létrehozva</th></tr>
+        </thead>
+        <tbody>
+          @for (user of users.value(); track user.nanoid) {
+            <tr>
+              <td>{{ user.displayName }}</td>
+              <td>{{ user.email }}</td>
+              <td>{{ user.createdAt | date: 'yyyy.MM.dd. HH:mm' }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="3">Nincs felhasználó.</td></tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
