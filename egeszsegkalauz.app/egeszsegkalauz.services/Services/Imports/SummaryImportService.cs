@@ -40,11 +40,7 @@ public class SummaryImportService : ISummaryImportService
         var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
 
         integration.FirstDataDate ??= await adapters.For(source).FindFirstDataDateAsync(apiKey, today, cancellationToken);
-        var result = new SummaryImportResultDto
-        {
-            To = today, RawRecords = 0, SleepNights = 0, BodyBatteryDays = 0, Vo2MaxReadings = 0,
-            BodyCompositionReadings = 0, Activities = 0,
-        };
+        var result = new SummaryImportResultDto { To = today, Endpoints = [] };
         if (integration.FirstDataDate is not { } firstDate)
         {
             await db.SaveChangesAsync(cancellationToken);
@@ -56,16 +52,17 @@ public class SummaryImportService : ISummaryImportService
             : firstDate;
         result.From = from;
 
+        var counts = new Dictionary<string, int>();
         await foreach (var chunk in adapters.SummariesFor(source).ImportSummariesAsync(apiKey, from, today, cancellationToken))
         {
-            await store.StoreSummaryChunkAsync(integration.User, source, chunk, cancellationToken);
-            result.RawRecords += chunk.Raw.Count;
-            result.SleepNights += chunk.Sleep.Count;
-            result.BodyBatteryDays += chunk.BodyBattery.Count;
-            result.Vo2MaxReadings += chunk.Vo2Max.Count;
-            result.BodyCompositionReadings += chunk.BodyComposition.Count;
-            result.Activities += chunk.Activities.Count;
+            await store.StoreChunkAsync(integration.UserId, source, chunk, cancellationToken);
+            foreach (var record in chunk.Records)
+                counts[record.Endpoint] = counts.GetValueOrDefault(record.Endpoint) + 1;
         }
+
+        result.Endpoints = counts.OrderBy(x => x.Key)
+            .Select(x => new EndpointRecordCountDto { Endpoint = x.Key, Records = x.Value })
+            .ToList();
 
         integration.SummariesImportedAt = timeProvider.GetUtcNow().UtcDateTime;
         integration.SummariesImportedThrough = today;

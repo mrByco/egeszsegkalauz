@@ -18,6 +18,7 @@ await using var devDatabase = await builder.AddAppDatabaseAsync();
 builder.Services.AddAppServices();
 builder.Services.AddAppAuthentication();
 builder.Services.AddHostedService<DailyImportWorker>();
+builder.Services.AddHostedService<SourceSyncWorker>();
 
 var app = builder.Build();
 

@@ -11,8 +11,19 @@ import {
   integrationsDisconnect,
   integrationsImportSummaries,
   integrationsStartDailyImport,
+  integrationsStartOAuth,
+  integrationsSync,
 } from '../../api/functions';
-import { ImportJobDto, IntegrationDto, SummaryImportResultDto } from '../../api/models';
+import {
+  ImportJobDto,
+  IntegrationAuthKind,
+  IntegrationCapability,
+  IntegrationDto,
+  SummaryImportResultDto,
+  SyncResultDto,
+  EndpointRecordCountDto,
+} from '../../api/models';
+import { Browser } from '../../browser/browser';
 import { SOURCE_LABELS } from '../../integrations/source-labels';
 
 export const POLL_INTERVAL_MS = 2000;
@@ -24,6 +35,7 @@ export const POLL_INTERVAL_MS = 2000;
 })
 export class IntegrationCard implements OnInit, OnDestroy {
   private readonly api = inject(Api);
+  private readonly browser = inject(Browser);
   private pollTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly integration = input.required<IntegrationDto>();
@@ -35,6 +47,7 @@ export class IntegrationCard implements OnInit, OnDestroy {
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly summaryResult = signal<SummaryImportResultDto | null>(null);
+  protected readonly syncResult = signal<SyncResultDto | null>(null);
   protected readonly job = signal<ImportJobDto | null>(null);
   protected readonly jobRunning = computed(() => this.job()?.status === 'Running');
   protected readonly progress = computed(() => {
@@ -45,9 +58,39 @@ export class IntegrationCard implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    if (this.integration().connected) {
+    if (this.integration().connected && this.can('DailyImport')) {
       void this.refreshJob();
     }
+  }
+
+  protected total(endpoints: EndpointRecordCountDto[]): number {
+    return endpoints.reduce((sum, endpoint) => sum + endpoint.records, 0);
+  }
+
+  protected can(capability: IntegrationCapability): boolean {
+    return this.integration().capabilities.includes(capability);
+  }
+
+  protected async startOAuth(): Promise<void> {
+    await this.run(async () => {
+      const { authorizationUrl } = await this.api.invoke(integrationsStartOAuth, {
+        source: this.integration().source,
+      });
+      this.browser.navigate(authorizationUrl);
+    });
+  }
+
+  protected async sync(): Promise<void> {
+    await this.run(async () => {
+      this.syncResult.set(
+        await this.api.invoke(integrationsSync, { source: this.integration().source }),
+      );
+      this.changed.emit({
+        ...this.integration(),
+        lastSyncAt: new Date().toISOString(),
+        lastSyncError: null,
+      });
+    });
   }
 
   ngOnDestroy(): void {
@@ -72,13 +115,30 @@ export class IntegrationCard implements OnInit, OnDestroy {
   }
 
   protected async disconnect(): Promise<void> {
+    const integration = this.integration();
+    if (
+      integration.deletesDataOnDisconnect &&
+      !this.browser.confirm(
+        `A leválasztás törli a(z) ${SOURCE_LABELS[integration.source]} szolgáltatásból szinkronizált összes adatot. Folytatod?`,
+      )
+    ) {
+      return;
+    }
+
     await this.run(async () => {
-      const source = this.integration().source;
-      await this.api.invoke(integrationsDisconnect, { source });
+      await this.api.invoke(integrationsDisconnect, { source: integration.source });
       clearTimeout(this.pollTimer);
       this.summaryResult.set(null);
+      this.syncResult.set(null);
       this.job.set(null);
-      this.changed.emit({ source, connected: false });
+      this.changed.emit({
+        ...integration,
+        connected: false,
+        apiKeyHint: null,
+        accountName: null,
+        lastSyncAt: null,
+        lastSyncError: null,
+      });
     });
   }
 
@@ -138,18 +198,20 @@ export class IntegrationCard implements OnInit, OnDestroy {
     try {
       await action();
     } catch (error) {
-      this.error.set(errorMessage(error));
+      this.error.set(errorMessage(error, this.integration().authKind));
     } finally {
       this.busy.set(false);
     }
   }
 }
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: unknown, authKind: IntegrationAuthKind): string {
   if (error instanceof HttpErrorResponse) {
     switch (error.status) {
       case HttpStatusCode.BadRequest:
-        return 'A szolgáltatás nem fogadta el az API kulcsot.';
+        return authKind === 'ApiKey'
+          ? 'A szolgáltatás nem fogadta el az API kulcsot.'
+          : 'A szolgáltatás nem fogadta el a hozzáférést. Csatlakoztasd újra.';
       case HttpStatusCode.BadGateway:
         return 'A szolgáltatás most nem érhető el. Próbáld újra később.';
     }

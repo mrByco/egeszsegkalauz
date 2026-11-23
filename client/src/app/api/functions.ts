@@ -9,8 +9,8 @@ export type { AuthLogout$Params as AuthLogout$Params } from './fn/auth/auth-logo
 export { authLogout as authLogout } from './fn/auth/auth-logout';
 export type { AuthMe$Params as AuthMe$Params } from './fn/auth/auth-me';
 export { authMe as authMe } from './fn/auth/auth-me';
-export type { HeartRateDaily$Params as HeartRateDaily$Params } from './fn/heart-rate/heart-rate-daily';
-export { heartRateDaily as heartRateDaily } from './fn/heart-rate/heart-rate-daily';
+export type { GarminHeartRateDays$Params as GarminHeartRateDays$Params } from './fn/garmin/garmin-heart-rate-days';
+export { garminHeartRateDays as garminHeartRateDays } from './fn/garmin/garmin-heart-rate-days';
 export type { IntegrationsList$Params as IntegrationsList$Params } from './fn/integrations/integrations-list';
 export { integrationsList as integrationsList } from './fn/integrations/integrations-list';
 export type { IntegrationsConnect$Params as IntegrationsConnect$Params } from './fn/integrations/integrations-connect';
@@ -25,6 +25,12 @@ export type { IntegrationsStartDailyImport$Params as IntegrationsStartDailyImpor
 export { integrationsStartDailyImport as integrationsStartDailyImport } from './fn/integrations/integrations-start-daily-import';
 export type { IntegrationsCancelDailyImport$Params as IntegrationsCancelDailyImport$Params } from './fn/integrations/integrations-cancel-daily-import';
 export { integrationsCancelDailyImport as integrationsCancelDailyImport } from './fn/integrations/integrations-cancel-daily-import';
+export type { IntegrationsStartOAuth$Params as IntegrationsStartOAuth$Params } from './fn/integrations/integrations-start-o-auth';
+export { integrationsStartOAuth as integrationsStartOAuth } from './fn/integrations/integrations-start-o-auth';
+export type { IntegrationsCompleteOAuth$Params as IntegrationsCompleteOAuth$Params } from './fn/integrations/integrations-complete-o-auth';
+export { integrationsCompleteOAuth as integrationsCompleteOAuth } from './fn/integrations/integrations-complete-o-auth';
+export type { IntegrationsSync$Params as IntegrationsSync$Params } from './fn/integrations/integrations-sync';
+export { integrationsSync as integrationsSync } from './fn/integrations/integrations-sync';
 export type { RolesList$Params as RolesList$Params } from './fn/roles/roles-list';
 export { rolesList as rolesList } from './fn/roles/roles-list';
 export type { RolesCreate$Params as RolesCreate$Params } from './fn/roles/roles-create';

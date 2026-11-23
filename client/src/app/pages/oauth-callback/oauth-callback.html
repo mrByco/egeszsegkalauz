@@ -1,0 +1,30 @@
+<div class="card mx-auto max-w-lg bg-base-100 shadow">
+  <div class="card-body gap-4">
+    <h1 class="card-title">{{ label() }} csatlakoztatása</h1>
+
+    @switch (step()) {
+      @case ('connecting') {
+        <p class="flex items-center gap-2"><span class="loading loading-spinner loading-sm"></span> Csatlakozás…</p>
+      }
+      @case ('syncing') {
+        <p class="flex items-center gap-2">
+          <span class="loading loading-spinner loading-sm"></span> Adatok letöltése, ez eltarthat egy ideig…
+        </p>
+      }
+      @case ('done') {
+        @if (result(); as result) {
+          <div role="status" class="alert alert-success">
+            Csatlakoztatva, {{ total(result) }} rekord letöltve.
+          </div>
+        }
+      }
+      @case ('failed') {
+        <div role="alert" class="alert alert-error">{{ message() }}</div>
+      }
+    }
+
+    @if (step() === 'done' || step() === 'failed') {
+      <a class="btn btn-primary" routerLink="/integraciok">Vissza az integrációkhoz</a>
+    }
+  </div>
+</div>

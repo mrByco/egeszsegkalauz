@@ -3,6 +3,7 @@ using egeszsegkalauz.data.Models;
 using egeszsegkalauz.services.DTO;
 using egeszsegkalauz.services.Services.Imports;
 using egeszsegkalauz.services.Services.Integrations;
+using egeszsegkalauz.services.Services.Sync;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,13 +18,17 @@ public class IntegrationsController : ControllerBase
     private readonly IIntegrationService integrationService;
     private readonly ISummaryImportService summaryImportService;
     private readonly IDailyImportService dailyImportService;
+    private readonly IOAuthService oauthService;
+    private readonly ISourceSyncService sourceSyncService;
 
     public IntegrationsController(IIntegrationService integrationService, ISummaryImportService summaryImportService,
-        IDailyImportService dailyImportService)
+        IDailyImportService dailyImportService, IOAuthService oauthService, ISourceSyncService sourceSyncService)
     {
         this.integrationService = integrationService;
         this.summaryImportService = summaryImportService;
         this.dailyImportService = dailyImportService;
+        this.oauthService = oauthService;
+        this.sourceSyncService = sourceSyncService;
     }
 
     [HttpGet]
@@ -84,5 +89,34 @@ public class IntegrationsController : ControllerBase
     {
         await dailyImportService.CancelAsync(User.GetUserNanoid(), source, cancellationToken);
         return NoContent();
+    }
+
+    [HttpPost("{source}/oauth/start")]
+    [ProducesResponseType<OAuthStartDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    public OAuthStartDto StartOAuth(HealthDataSource source)
+    {
+        return oauthService.Start(User.GetUserNanoid(), source);
+    }
+
+    [HttpPost("{source}/oauth/complete")]
+    [ProducesResponseType<IntegrationDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IntegrationDto> CompleteOAuth(HealthDataSource source, CompleteOAuthRequest request,
+        CancellationToken cancellationToken)
+    {
+        return await oauthService.CompleteAsync(User.GetUserNanoid(), source, request, cancellationToken);
+    }
+
+    [HttpPost("{source}/sync")]
+    [ProducesResponseType<SyncResultDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<SyncResultDto> Sync(HealthDataSource source, CancellationToken cancellationToken)
+    {
+        return await sourceSyncService.SyncAsync(User.GetUserNanoid(), source, cancellationToken);
     }
 }

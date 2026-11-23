@@ -102,21 +102,27 @@ Permissions are stored by name, so renaming or removing a member needs a migrati
 
 ## Health data integrations
 
+Our database is a buffer of the sources' data, so nothing has to be fetched twice. It does not merge or
+normalize sources: every source keeps its own shape, and matching and cleaning across sources is left to
+the analysis agent. With three heart-rate sources there are three heart-rate tables.
+
 Each external source has its own folder in `egeszsegkalauz.integrations` (e.g. `Garmin/`) with an
-adapter service behind an interface, the source's wire models and options. Adapters implement the
-shared contracts in `Common/` and return source-neutral types; they know nothing about the database.
-`HealthDataAdapters` in the services project maps a `HealthDataSource` to its adapter.
+adapter service behind an interface, the source's models (`<Source>Models.cs`, named as the source
+names its fields) and options. `Common/` holds only what does not depend on a source's data: auth
+contracts, import techniques, `RawRecord`/`SyncChunk` and the exceptions. Adapters fetch, page, pace and
+split responses into raw records; they know nothing about the database. `HealthDataAdapters` in the
+services project maps a `HealthDataSource` to its adapter.
 
 Users connect a source on the Integrációk page with their own API key (Garmin: personal Connect API
 key). The key is checked with the source, then stored encrypted with ASP.NET Data Protection, whose keys
 live in the `DataProtectionKeys` table.
 
 Everything a source returns is kept twice: verbatim in `RawHealthRecords` (jsonb, one row per endpoint
-and day, activity or measurement, so fields can be parsed later without downloading again), and parsed
-into typed tables with a `Source` column (`DailyHeartRateSummaries`/`HeartRateSamples`,
-`DailyActivitySummaries`, `SleepSummaries`, `BodyBatteryDailySummaries`/`BodyBatterySamples`,
-`Vo2MaxMeasurements`, `BodyCompositionMeasurements`, `ExerciseActivities`). Re-imports update rows in
-place.
+and day, activity or measurement), and copied into the source's own Postgres schema by its store in the
+services project (`GarminStore` → `garmin.*`, `HevyStore` → `hevy.*`). Those tables mirror the source:
+its field names, units (Garmin weight in grams) and timestamps (Garmin epoch milliseconds), keyed by the
+user and the source's own keys. They are built only from raw records, so they can be rebuilt without
+fetching again; fields without a column stay in the raw payload.
 
 There are two imports, both starting from the first day the source has data for:
 
@@ -134,15 +140,36 @@ There are two imports, both starting from the first day the source has data for:
   the job status.
   Garmin full history is ~5,300 queries, roughly 45 minutes.
 
+**Hevy** connects with OAuth (`IOAuthAdapter`): "Csatlakozás" sends the user to hevy.com, which returns
+to the client route `/integraciok/hevy/callback`; that page posts `code` and `state` to the API (a client
+route, because the `SameSite=Strict` auth cookies are not sent on the cross-site return). `state` is a
+Data Protection payload bound to the user and valid for 10 minutes. Access and refresh tokens are stored
+encrypted; refresh tokens work once, so `AccessTokenProvider` refreshes under a row lock. Hevy syncs
+through `ICursorSyncAdapter`: the first sync reads everything, later ones read Hevy's workout events
+since the last sync. `SourceSyncWorker` syncs every connected user about hourly, and
+`POST /api/integrations/hevy/webhook` (signature checked with the client secret) stores new workouts
+right away; Hevy only calls public URLs, so in development there are no webhooks. Hevy's developer
+terms require deleting synced data when the user disconnects, and continuous sync beyond the 10 test
+accounts needs Hevy's written approval. Use one Hevy OAuth app per environment.
+
+```bash
+dotnet user-secrets set Integrations:Hevy:ClientId "<id>" --project egeszsegkalauz.app/egeszsegkalauz.api
+dotnet user-secrets set Integrations:Hevy:ClientSecret "<secret>" --project egeszsegkalauz.app/egeszsegkalauz.api
+```
+
+Production needs `Integrations__Hevy__ClientId`, `Integrations__Hevy__ClientSecret` and
+`Integrations__Hevy__RedirectUri` (`https://<domain>/integraciok/hevy/callback`).
+
 In development the seeded users are connected to Garmin when a key is in the API's user-secrets:
 
 ```bash
 dotnet user-secrets set DevData:GarminApiKey "<key>" --project egeszsegkalauz.app/egeszsegkalauz.api
 ```
 
-Adding a source: add a `HealthDataSource` member, an adapter folder implementing the `Common/`
-interfaces it supports, register it in `AddIntegrations()`, map it in `HealthDataAdapters`, and add its
-label to `client/src/app/integrations/source-labels.ts`.
+Adding a source: add a `HealthDataSource` member; an adapter folder implementing the `Common/`
+interfaces it supports, registered in `AddIntegrations()` and mapped in `HealthDataAdapters`; its tables
+under `data/Models/<Source>` in their own schema (`AppDbContext.<Source>.cs`); a `<Source>Store` mapped in
+`SourceStores`; and its label in `client/src/app/integrations/source-labels.ts`.
 
 ## Common tasks
 

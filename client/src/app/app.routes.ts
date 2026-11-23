@@ -25,6 +25,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/integrations/integrations').then((m) => m.Integrations),
   },
   {
+    path: 'integraciok/:source/callback',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/oauth-callback/oauth-callback').then((m) => m.OAuthCallback),
+  },
+  {
     path: 'admin',
     canActivate: [authGuard],
     children: [

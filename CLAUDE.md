@@ -13,11 +13,16 @@ and comments are English.
   (all logic; DTOs one per file in `DTO/`) → `egeszsegkalauz.data` (EF Core, models, migrations) and
   `egeszsegkalauz.integrations` (external sources, no database access). Controllers hold no business
   logic and never return `object`.
+- The database buffers each source's data in that source's own shape; never merge or normalize sources
+  (no shared heart-rate/sleep/workout types or tables). Cross-source matching is the analysis agent's job.
 - Each external health data source lives in its own folder in `egeszsegkalauz.integrations`, behind an
-  interface (`I<Source>AdapterService`), with all of its wire models in one `<Source>Models.cs`. Adapters
-  return the source-neutral types from `Common/`, never their wire models, plus the verbatim payload as
-  `RawRecord`s. Pacing, retries and rate-limit handling are the adapter's (`DailyImportPolicy`,
-  `IntegrationRateLimitedException`); the generic queue in the services only follows them.
+  interface (`I<Source>AdapterService`), with its models in one `<Source>Models.cs`. Adapters return raw
+  records (`SyncChunk`) only; `Common/` holds nothing source-shaped. Pacing, retries and rate-limit
+  handling are the adapter's (`DailyImportPolicy`, `IntegrationRateLimitedException`); the generic queue in
+  the services only follows them.
+- A source's tables live in its own schema (`data/Models/<Source>`, `AppDbContext.<Source>.cs`), mirror its
+  field names and units, are keyed by `UserId` plus the source's keys, and are written only by its
+  `<Source>Store` from raw records.
 - DTOs and service results are classes with one property per value, `required` on every non-nullable
   one. No positional (inline) records.
 - No primary constructors: write an explicit constructor and keep dependencies in
@@ -28,8 +33,8 @@ and comments are English.
 - Package versions live only in `egeszsegkalauz.app/Directory.Packages.props` (central package
   management); shared MSBuild settings in `Directory.Build.props`.
 - Entities derive from `Entity`: the integer `Id` stays inside `egeszsegkalauz.data`; the API exposes
-  `Nanoid`. `CreatedAt`/`UpdatedAt` are stamped by `AppDbContext` — don't set them by hand. Exception:
-  high-volume time series (e.g. `HeartRateSample`) use a natural composite key instead.
+  `Nanoid`. `CreatedAt`/`UpdatedAt` are stamped by `AppDbContext` — don't set them by hand. Source
+  buffer tables are the exception: they use the source's own keys.
 - Swagger marks non-nullable C# properties as required (`RequireNonNullablePropertiesSchemaFilter`), so
   nullability in DTOs is what the generated TypeScript types get.
 - `client/src/app/api/` is generated: after any controller or DTO change run `./regen-api.sh`.
@@ -40,6 +45,8 @@ and comments are English.
 - Services signal errors by throwing `NotFoundException` (404), `ConflictException` (409) or
   `InvalidInputException` (400); adapters throw `IntegrationUnavailableException` (502).
   `ServiceExceptionHandler` turns them into ProblemDetails. Controllers don't catch them.
+- Sources whose terms require it (`IntegrationDescriptor.DeletesDataOnDisconnect`, e.g. Hevy) delete all
+  their synced data on disconnect; keep each `<Source>Store.DeleteAllAsync` covering all of its tables.
 - Secrets (third-party API keys) are never committed: dev values go in the API's user-secrets, stored
   values are encrypted with `IApiKeyProtector`.
 - Dev fixtures belong in `DevDataSeeder`, or in a `dev-data/dev.dump` made with `./dev-db.sh dump`.

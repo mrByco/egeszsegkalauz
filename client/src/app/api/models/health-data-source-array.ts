@@ -7,5 +7,6 @@ import { HealthDataSource } from './health-data-source';
  * Each possible value of `HealthDataSource`
  */
 export const HEALTH_DATA_SOURCE: HealthDataSource[] = [
-  'Garmin'
+  'Garmin',
+  'Hevy'
 ];

@@ -62,9 +62,9 @@ public class DailyImportServiceTests
         Assert.That((status.Status, status.CompletedQueries, status.FailedQueries), Is.EqualTo((ImportJobStatus.Completed, 6, 0)));
 
         await using var db = PostgresFixture.CreateDbContext();
-        Assert.That(await db.DailyHeartRateSummaries.CountAsync(), Is.EqualTo(3));
-        Assert.That(await db.HeartRateSamples.CountAsync(), Is.EqualTo(6));
-        Assert.That(await db.DailyActivitySummaries.Select(x => x.Steps).ToListAsync(), Is.All.EqualTo(8000));
+        Assert.That(await db.GarminHeartRateDays.CountAsync(), Is.EqualTo(3));
+        Assert.That(await db.GarminHeartRateValues.CountAsync(), Is.EqualTo(9));
+        Assert.That(await db.GarminUserSummaries.Select(x => x.TotalSteps).ToListAsync(), Is.All.EqualTo(8123));
         Assert.That(await db.RawHealthRecords.CountAsync(), Is.EqualTo(6));
     }
 
@@ -89,14 +89,14 @@ public class DailyImportServiceTests
         await StartAsync();
         await DrainAsync();
         await StartAsync();
-        garmin.RawJson = (kind, date) => date == Today ? "{not json" : """{"ok":true}""";
+        garmin.RawJson = (_, date) => date == Today ? "{not json" : null;
 
         await ProcessAsync();
 
         await using var db = PostgresFixture.CreateDbContext();
         var raw = await db.RawHealthRecords.SingleAsync(x => x.Endpoint == GarminAdapterService.HeartRateQuery && x.Date == Today);
-        Assert.That(raw.Payload, Does.Contain("ok"));
-        Assert.That(await db.HeartRateSamples.CountAsync(x => x.Date == Today), Is.EqualTo(2));
+        Assert.That(raw.Payload, Does.Contain("heartRateValues"));
+        Assert.That(await db.GarminHeartRateValues.CountAsync(x => x.CalendarDate == Today), Is.EqualTo(3));
         var item = await db.ImportQueueItems
             .Where(x => x.Job.Status == ImportJobStatus.Running && x.Date == Today && x.Kind == GarminAdapterService.HeartRateQuery)
             .SingleAsync();
@@ -209,14 +209,14 @@ public class DailyImportServiceTests
     private async Task ConnectAsync()
     {
         await using var db = PostgresFixture.CreateDbContext();
-        await new IntegrationService(db, new HealthDataAdapters(garmin), protector)
+        await new IntegrationService(db, new HealthDataAdapters(garmin, new FakeHevyAdapter()), protector, TestStores.Create(db, time))
             .ConnectAsync(adminNanoid, HealthDataSource.Garmin, FakeGarminAdapter.ValidKey, CancellationToken.None);
     }
 
     private async Task<T> RunAsync<T>(Func<DailyImportService, Task<T>> action)
     {
         await using var db = PostgresFixture.CreateDbContext();
-        var service = new DailyImportService(db, new HealthDataAdapters(garmin), protector, new HealthDataStore(db, time),
+        var service = new DailyImportService(db, new HealthDataAdapters(garmin, new FakeHevyAdapter()), protector, TestStores.Create(db, time),
             pacer, time);
         return await action(service);
     }

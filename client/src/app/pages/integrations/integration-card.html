@@ -15,109 +15,181 @@
 
     @if (integration().connected) {
       <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-        <dt class="opacity-70">API kulcs</dt>
-        <dd>{{ integration().apiKeyHint }}</dd>
-        <dt class="opacity-70">Adatok kezdete</dt>
-        <dd>{{ (integration().firstDataDate | date: 'yyyy.MM.dd.') ?? '–' }}</dd>
-        <dt class="opacity-70">Összesítők importálva</dt>
-        <dd>{{ (integration().summariesImportedAt | date: 'yyyy.MM.dd. HH:mm') ?? '–' }}</dd>
+        @if (integration().accountName; as accountName) {
+          <dt class="opacity-70">Fiók</dt>
+          <dd>{{ accountName }}</dd>
+        }
+        @if (integration().apiKeyHint; as apiKeyHint) {
+          <dt class="opacity-70">API kulcs</dt>
+          <dd>{{ apiKeyHint }}</dd>
+        }
+        @if (can('SummaryImport')) {
+          <dt class="opacity-70">Adatok kezdete</dt>
+          <dd>{{ (integration().firstDataDate | date: 'yyyy.MM.dd.') ?? '–' }}</dd>
+          <dt class="opacity-70">Összesítők importálva</dt>
+          <dd>{{ (integration().summariesImportedAt | date: 'yyyy.MM.dd. HH:mm') ?? '–' }}</dd>
+        }
+        @if (can('Sync')) {
+          <dt class="opacity-70">Utolsó szinkronizálás</dt>
+          <dd>{{ (integration().lastSyncAt | date: 'yyyy.MM.dd. HH:mm') ?? '–' }}</dd>
+        }
       </dl>
 
-      <section class="flex flex-col gap-2 rounded-box border border-base-300 p-4">
-        <h3 class="font-semibold">Összesítők</h3>
-        <p class="text-sm opacity-70">
-          Alvás, Body Battery, VO2max, testsúly, edzések és napi összesítők. Az első import a teljes
-          előzményt letölti, ez több percig is tarthat.
-        </p>
-        <div>
-          <button class="btn btn-primary btn-sm" type="button" [disabled]="busy()" (click)="importSummaries()">
-            @if (busy()) {
-              <span class="loading loading-spinner loading-sm"></span>
-            }
-            Összesítők importálása
-          </button>
-        </div>
-        @if (summaryResult(); as result) {
-          <div role="status" class="alert alert-success alert-soft text-sm">
-            {{ result.sleepNights }} éjszaka alvás, {{ result.bodyBatteryDays }} nap Body Battery,
-            {{ result.activities }} edzés, {{ result.vo2MaxReadings }} VO2max és
-            {{ result.bodyCompositionReadings }} testsúlymérés ({{ result.rawRecords }} rekord).
+      @if (can('Sync')) {
+        <section class="flex flex-col gap-2 rounded-box border border-base-300 p-4">
+          <h3 class="font-semibold">Szinkronizálás</h3>
+          <p class="text-sm opacity-70">
+            A szolgáltatás minden adatát letölti és a saját formájában tárolja. Óránként magától is
+            frissül.
+          </p>
+          @if (integration().lastSyncError; as lastSyncError) {
+            <div role="alert" class="alert alert-warning alert-soft text-sm">
+              Az utolsó szinkronizálás nem sikerült: {{ lastSyncError }}
+            </div>
+          }
+          <div>
+            <button class="btn btn-primary btn-sm" type="button" [disabled]="busy()" (click)="sync()">
+              @if (busy()) {
+                <span class="loading loading-spinner loading-sm"></span>
+              }
+              Szinkronizálás
+            </button>
           </div>
-        }
-      </section>
-
-      <section class="flex flex-col gap-2 rounded-box border border-base-300 p-4">
-        <h3 class="font-semibold">Napi részletes adatok</h3>
-        <p class="text-sm opacity-70">
-          Percre bontott pulzus, napi aktivitás és alvás minden napra. A háttérben fut, a szolgáltatás
-          korlátait betartva.
-        </p>
-
-        @if (job(); as job) {
-          @if (jobRunning()) {
-            <div data-testid="daily-progress" class="flex flex-col gap-1">
-              <progress class="progress progress-primary w-full" [value]="progress()" max="100"></progress>
-              <span class="text-sm">
-                {{ job.completedQueries }} / {{ job.totalQueries }} lekérdezés
-                ({{ progress() }}%)
-                @if (job.failedQueries) {
-                  · {{ job.failedQueries }} sikertelen
+          @if (syncResult(); as result) {
+            <div role="status" class="alert alert-success alert-soft flex-col items-start text-sm">
+              <span>
+                {{ total(result.endpoints) }} rekord {{ result.fullSync ? 'letöltve' : 'frissült' }},
+                {{ result.deleted }} törölve.
+              </span>
+              <span class="opacity-70">
+                @for (endpoint of result.endpoints; track endpoint.endpoint) {
+                  {{ endpoint.endpoint }}: {{ endpoint.records }}{{ $last ? '' : ', ' }}
                 }
               </span>
             </div>
-          } @else {
-            <span data-testid="daily-status" class="text-sm">
-              @switch (job.status) {
-                @case ('Completed') {
-                  Kész: {{ job.completedQueries }} lekérdezés
-                  @if (job.failedQueries) {
-                    , {{ job.failedQueries }} sikertelen
-                  }
-                  ({{ job.finishedAt | date: 'yyyy.MM.dd. HH:mm' }})
-                }
-                @case ('Cancelled') {
-                  Leállítva {{ job.completedQueries }} / {{ job.totalQueries }} lekérdezésnél.
-                }
-                @case ('Failed') {
-                  Sikertelen: {{ job.lastError }}
-                }
-              }
-            </span>
           }
-        }
+        </section>
+      }
 
-        <div class="flex gap-2">
-          @if (jobRunning()) {
-            <button class="btn btn-sm" type="button" [disabled]="busy()" (click)="cancelDailyImport()">
-              Leállítás
+      @if (can('SummaryImport')) {
+        <section class="flex flex-col gap-2 rounded-box border border-base-300 p-4">
+          <h3 class="font-semibold">Összesítők</h3>
+          <p class="text-sm opacity-70">
+            A több napot lefedő lekérdezések: alvás, Body Battery, VO2max, testsúly, edzések és napi
+            összesítők. Az első import a teljes előzményt letölti, ez több percig is tarthat.
+          </p>
+          <div>
+            <button class="btn btn-primary btn-sm" type="button" [disabled]="busy()" (click)="importSummaries()">
+              @if (busy()) {
+                <span class="loading loading-spinner loading-sm"></span>
+              }
+              Összesítők importálása
             </button>
-          } @else {
-            <button class="btn btn-primary btn-sm" type="button" [disabled]="busy()" (click)="startDailyImport()">
-              Napi adatok importálása
-            </button>
+          </div>
+          @if (summaryResult(); as result) {
+            <div role="status" class="alert alert-success alert-soft flex-col items-start text-sm">
+              <span>{{ total(result.endpoints) }} rekord letöltve.</span>
+              <span class="opacity-70">
+                @for (endpoint of result.endpoints; track endpoint.endpoint) {
+                  {{ endpoint.endpoint }}: {{ endpoint.records }}{{ $last ? '' : ', ' }}
+                }
+              </span>
+            </div>
           }
-        </div>
-      </section>
+        </section>
+      }
+
+      @if (can('DailyImport')) {
+        <section class="flex flex-col gap-2 rounded-box border border-base-300 p-4">
+          <h3 class="font-semibold">Napi részletes adatok</h3>
+          <p class="text-sm opacity-70">
+            Percre bontott pulzus, napi aktivitás és alvás minden napra. A háttérben fut, a szolgáltatás
+            korlátait betartva.
+          </p>
+
+          @if (job(); as job) {
+            @if (jobRunning()) {
+              <div data-testid="daily-progress" class="flex flex-col gap-1">
+                <progress class="progress progress-primary w-full" [value]="progress()" max="100"></progress>
+                <span class="text-sm">
+                  {{ job.completedQueries }} / {{ job.totalQueries }} lekérdezés ({{ progress() }}%)
+                  @if (job.failedQueries) {
+                    · {{ job.failedQueries }} sikertelen
+                  }
+                </span>
+              </div>
+            } @else {
+              <span data-testid="daily-status" class="text-sm">
+                @switch (job.status) {
+                  @case ('Completed') {
+                    Kész: {{ job.completedQueries }} lekérdezés
+                    @if (job.failedQueries) {
+                      , {{ job.failedQueries }} sikertelen
+                    }
+                    ({{ job.finishedAt | date: 'yyyy.MM.dd. HH:mm' }})
+                  }
+                  @case ('Cancelled') {
+                    Leállítva {{ job.completedQueries }} / {{ job.totalQueries }} lekérdezésnél.
+                  }
+                  @case ('Failed') {
+                    Sikertelen: {{ job.lastError }}
+                  }
+                }
+              </span>
+            }
+          }
+
+          <div class="flex gap-2">
+            @if (jobRunning()) {
+              <button class="btn btn-sm" type="button" [disabled]="busy()" (click)="cancelDailyImport()">
+                Leállítás
+              </button>
+            } @else {
+              <button class="btn btn-primary btn-sm" type="button" [disabled]="busy()" (click)="startDailyImport()">
+                Napi adatok importálása
+              </button>
+            }
+          </div>
+        </section>
+      }
     }
 
-    <form class="flex flex-wrap items-end gap-2" (ngSubmit)="connect()">
-      <label class="flex grow flex-col gap-1 text-sm">
-        <span class="opacity-70">{{ integration().connected ? 'Új API kulcs' : 'API kulcs' }}</span>
-        <input
-          class="input input-sm w-full"
-          type="password"
-          name="apiKey"
-          autocomplete="off"
-          [ngModel]="apiKey()"
-          (ngModelChange)="apiKey.set($event)"
-        />
-      </label>
-      <button class="btn btn-sm" type="submit" [disabled]="busy() || !apiKey().trim()">Mentés</button>
-      @if (integration().connected) {
-        <button class="btn btn-ghost btn-sm text-error" type="button" [disabled]="busy()" (click)="disconnect()">
-          Leválasztás
-        </button>
-      }
-    </form>
+    @if (integration().authKind === 'ApiKey') {
+      <form class="flex flex-wrap items-end gap-2" (ngSubmit)="connect()">
+        <label class="flex grow flex-col gap-1 text-sm">
+          <span class="opacity-70">{{ integration().connected ? 'Új API kulcs' : 'API kulcs' }}</span>
+          <input
+            class="input input-sm w-full"
+            type="password"
+            name="apiKey"
+            autocomplete="off"
+            [ngModel]="apiKey()"
+            (ngModelChange)="apiKey.set($event)"
+          />
+        </label>
+        <button class="btn btn-sm" type="submit" [disabled]="busy() || !apiKey().trim()">Mentés</button>
+        @if (integration().connected) {
+          <button class="btn btn-ghost btn-sm text-error" type="button" [disabled]="busy()" (click)="disconnect()">
+            Leválasztás
+          </button>
+        }
+      </form>
+    } @else {
+      <div class="flex flex-wrap items-center gap-2">
+        @if (integration().connected) {
+          <button class="btn btn-sm" type="button" [disabled]="busy()" (click)="startOAuth()">Újracsatlakozás</button>
+          <button class="btn btn-ghost btn-sm text-error" type="button" [disabled]="busy()" (click)="disconnect()">
+            Leválasztás
+          </button>
+        } @else {
+          <button class="btn btn-primary btn-sm" type="button" [disabled]="busy()" (click)="startOAuth()">
+            Csatlakozás
+          </button>
+        }
+        @if (integration().deletesDataOnDisconnect) {
+          <span class="text-xs opacity-60">Leválasztáskor a szinkronizált adatok törlődnek.</span>
+        }
+      </div>
+    }
   </div>
 </div>

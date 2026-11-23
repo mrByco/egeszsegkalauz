@@ -35,37 +35,16 @@ public class GarminAdapterServiceTests
     }
 
     [Test]
-    public async Task HeartRateQueryKeepsTheRawDayAndDropsEmptyReadings()
+    public async Task ADailyQueryReturnsGarminsPayloadVerbatim()
     {
-        Route("/wellness-service/wellness/dailyHeartRate?date=2026-11-20", """
-            {"calendarDate":"2026-11-20","restingHeartRate":52.0,"minHeartRate":48,"maxHeartRate":131,
-             "heartRateValues":[[1795129200000,60],[1795129320000,null],[1795129440000,64]]}
-            """);
+        Route("/wellness-service/wellness/dailyHeartRate?date=2026-11-20", GarminSamples.HeartRateDay(Day));
 
-        var result = await CreateAdapter().RunDailyQueryAsync(ValidKey, GarminAdapterService.HeartRateQuery, Day, CancellationToken.None);
+        var chunk = await CreateAdapter().RunDailyQueryAsync(ValidKey, GarminAdapterService.HeartRateQuery, Day, CancellationToken.None);
 
-        Assert.That((result.Raw.Endpoint, result.Raw.Key, result.Raw.Date), Is.EqualTo(("heart-rate", "2026-11-20", (DateOnly?)Day)));
-        Assert.That(result.Raw.Json, Does.Contain("heartRateValues"));
-        Assert.That(result.HeartRate?.RestingBpm, Is.EqualTo(52));
-        Assert.That(result.HeartRate?.Readings.Select(x => x.Bpm), Is.EqualTo(new[] { 60, 64 }));
-        Assert.That(result.HeartRate?.Readings[0].TimestampUtc, Is.EqualTo(new DateTime(2026, 11, 19, 23, 0, 0, DateTimeKind.Utc)));
+        var record = chunk.Records.Single();
+        Assert.That((record.Endpoint, record.Key, record.Date), Is.EqualTo(("heart-rate", "2026-11-20", (DateOnly?)Day)));
+        Assert.That(record.Json, Is.EqualTo(GarminSamples.HeartRateDay(Day)));
         Assert.That(requests.Last().Headers.Authorization?.ToString(), Is.EqualTo("Bearer token-1"));
-    }
-
-    [Test]
-    public async Task UserSummaryQueryMapsTheDailyTotals()
-    {
-        Route("/usersummary-service/usersummary/daily?calendarDate=2026-11-20", """
-            {"calendarDate":"2026-11-20","totalSteps":8123.0,"vigorousIntensityMinutes":12,
-             "bodyBatteryHighestValue":91,"averageStressLevel":34,"averageSpo2":null}
-            """);
-
-        var result = await CreateAdapter().RunDailyQueryAsync(ValidKey, GarminAdapterService.UserSummaryQuery, Day, CancellationToken.None);
-
-        Assert.That(result.Activity?.Steps, Is.EqualTo(8123));
-        Assert.That(result.Activity?.VigorousIntensityMinutes, Is.EqualTo(12));
-        Assert.That(result.Activity?.BodyBatteryHighest, Is.EqualTo(91));
-        Assert.That(result.Activity?.AverageSpo2, Is.Null);
     }
 
     [Test]
@@ -73,9 +52,9 @@ public class GarminAdapterServiceTests
     {
         routes["/sleep-service/sleep/dailySleep?date=2026-11-20"] = () => new HttpResponseMessage(HttpStatusCode.NoContent);
 
-        var result = await CreateAdapter().RunDailyQueryAsync(ValidKey, GarminAdapterService.SleepQuery, Day, CancellationToken.None);
+        var chunk = await CreateAdapter().RunDailyQueryAsync(ValidKey, GarminAdapterService.SleepQuery, Day, CancellationToken.None);
 
-        Assert.That(result.Raw.Json, Is.EqualTo("null"));
+        Assert.That(chunk.Records.Single().Json, Is.EqualTo("null"));
     }
 
     [Test]
@@ -114,52 +93,31 @@ public class GarminAdapterServiceTests
     }
 
     [Test]
-    public async Task SummariesAreSplitIntoOneRawRecordPerDayAndParsed()
+    public async Task SummariesAreSplitIntoOneRawRecordPerItem()
     {
-        Route("/sleep-service/sleep/dailySleepSummariesByDate?startDate=2026-11-19&endDate=2026-11-20", """
-            [{"calendarDate":"2026-11-19","sleepTimeSeconds":27000,"deepSleepSeconds":5400.0,
-              "sleepStartTimestampGMT":1795125600000,"sleepScores":{"overall":{"value":81,"qualifierKey":"GOOD"}}},
-             {"calendarDate":"2026-11-20","sleepTimeSeconds":21000}]
-            """);
-        Route("/weight-service/weight/all/2026-11-19/2026-11-20", """
-            [{"calendarDate":"2026-11-20","timestampGMT":1795248882000,"weight":70839.0,"boneMass":4730,"bodyFat":18.1}]
-            """);
+        Route("/sleep-service/sleep/dailySleepSummariesByDate?startDate=2026-11-19&endDate=2026-11-20", GarminSamples.SleepSummaries);
+        Route("/weight-service/weight/all/2026-11-19/2026-11-20", GarminSamples.Weight);
         Route("/biometric-service/heartRateZones/v2", """[{"sport":"DEFAULT","zone1Floor":100}]""");
         Route("/fitnessage-service/fitnessage/v2/2026-11-20?fullHistoryScan=true", """{"fitnessAge":22.3}""");
 
-        var chunks = await CreateAdapter()
-            .ImportSummariesAsync(ValidKey, Day.AddDays(-1), Day, CancellationToken.None)
-            .ToListAsync();
+        var records = await SummaryRecordsAsync();
 
-        var sleep = chunks.Single(x => x.Endpoint == "sleep-summaries");
-        Assert.That(sleep.Raw.Select(x => x.Key), Is.EqualTo(new[] { "2026-11-19", "2026-11-20" }));
-        Assert.That(sleep.Sleep[0].Score, Is.EqualTo(81));
-        Assert.That(sleep.Sleep[0].ScoreQualifier, Is.EqualTo("GOOD"));
-        Assert.That(sleep.Sleep[0].DeepSeconds, Is.EqualTo(5400));
-        Assert.That(sleep.Sleep[0].StartUtc, Is.EqualTo(new DateTime(2026, 11, 19, 22, 0, 0, DateTimeKind.Utc)));
-
-        var weight = chunks.Single(x => x.Endpoint == "weight").BodyComposition.Single();
-        Assert.That(weight.WeightKg, Is.EqualTo(70.839).Within(0.0001));
-        Assert.That(weight.BoneMassKg, Is.EqualTo(4.73).Within(0.0001));
-
-        Assert.That(chunks.Select(x => x.Endpoint), Does.Contain("hr-zones").And.Contain("fitness-age"));
+        var sleep = records.Where(x => x.Endpoint == GarminAdapterService.SleepSummariesEndpoint).ToList();
+        Assert.That(sleep.Select(x => x.Key), Is.EqualTo(new[] { "2026-11-19", "2026-11-20" }));
+        Assert.That(sleep[0].Json, Does.Contain("\"qualifierKey\":\"GOOD\""));
+        Assert.That(records.Single(x => x.Endpoint == GarminAdapterService.WeightEndpoint).Key, Is.EqualTo("1795248882000"));
+        Assert.That(records.Select(x => x.Endpoint), Does.Contain("hr-zones").And.Contain("fitness-age"));
     }
 
     [Test]
     public async Task ActivitiesStopAtTheStartOfTheRange()
     {
-        Route("/activitylist-service/activities/search/activities?start=0&limit=100", """
-            [{"activityId":2,"activityName":"Futás","activityType":{"typeKey":"running"},"beginTimestamp":1795212000000,
-              "duration":1800.5,"averageHR":150.0,"hrTimeInZone_3":600.0},
-             {"activityId":1,"activityName":"Régi","beginTimestamp":1700000000000}]
-            """);
+        Route("/activitylist-service/activities/search/activities?start=0&limit=100",
+            $$"""[{{GarminSamples.Activity}}, {"activityId":1,"activityName":"Régi","beginTimestamp":1700000000000}]""");
 
-        var chunks = await CreateAdapter()
-            .ImportSummariesAsync(ValidKey, Day.AddDays(-1), Day, CancellationToken.None)
-            .ToListAsync();
+        var records = await SummaryRecordsAsync();
 
-        var activity = chunks.Single(x => x.Endpoint == "activities").Activities.Single();
-        Assert.That((activity.SourceActivityId, activity.Type, activity.HeartRateZone3Seconds), Is.EqualTo(("2", "running", (double?)600.0)));
+        Assert.That(records.Where(x => x.Endpoint == GarminAdapterService.ActivityEndpoint).Select(x => x.Key), Is.EqualTo(new[] { "42" }));
         Assert.That(requests.Count(x => x.RequestUri?.AbsolutePath.Contains("activities") == true), Is.EqualTo(1));
     }
 
@@ -169,11 +127,9 @@ public class GarminAdapterServiceTests
         Route("/usersummary-service/v2/dailysummaries?startDate=2026-11-19&endDate=2026-11-20",
             """{"data":[{"calendarDate":"2026-11-20","movement":{"steps":5}}],"userProfilePk":7}""");
 
-        var chunks = await CreateAdapter()
-            .ImportSummariesAsync(ValidKey, Day.AddDays(-1), Day, CancellationToken.None)
-            .ToListAsync();
+        var records = await SummaryRecordsAsync();
 
-        var raw = chunks.Single(x => x.Endpoint == "daily-summaries").Raw;
+        var raw = records.Where(x => x.Endpoint.StartsWith(GarminAdapterService.DailySummariesEndpoint)).ToList();
         Assert.That(raw.Select(x => x.Endpoint), Is.EquivalentTo(new[] { "daily-summaries", "daily-summaries-envelope" }));
         Assert.That(raw.Single(x => x.Endpoint == "daily-summaries-envelope").Json, Is.EqualTo("""{"userProfilePk":7}"""));
     }
@@ -190,6 +146,15 @@ public class GarminAdapterServiceTests
         var first = await CreateAdapter().FindFirstDataDateAsync(ValidKey, Day, CancellationToken.None);
 
         Assert.That(first, Is.EqualTo(new DateOnly(2025, 3, 1)));
+    }
+
+    private async Task<List<RawRecord>> SummaryRecordsAsync()
+    {
+        return (await CreateAdapter()
+                .ImportSummariesAsync(ValidKey, Day.AddDays(-1), Day, CancellationToken.None)
+                .ToListAsync())
+            .SelectMany(x => x.Records)
+            .ToList();
     }
 
     private void Route(string pathAndQuery, string json)

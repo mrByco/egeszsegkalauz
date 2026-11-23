@@ -2,6 +2,7 @@ using egeszsegkalauz.data;
 using egeszsegkalauz.data.Models;
 using egeszsegkalauz.services.DTO;
 using egeszsegkalauz.services.Exceptions;
+using egeszsegkalauz.services.Services.HealthData;
 using Microsoft.EntityFrameworkCore;
 
 namespace egeszsegkalauz.services.Services.Integrations;
@@ -11,12 +12,15 @@ public class IntegrationService : IIntegrationService
     private readonly AppDbContext db;
     private readonly HealthDataAdapters adapters;
     private readonly IApiKeyProtector apiKeyProtector;
+    private readonly HealthDataStore store;
 
-    public IntegrationService(AppDbContext db, HealthDataAdapters adapters, IApiKeyProtector apiKeyProtector)
+    public IntegrationService(AppDbContext db, HealthDataAdapters adapters, IApiKeyProtector apiKeyProtector,
+        HealthDataStore store)
     {
         this.db = db;
         this.adapters = adapters;
         this.apiKeyProtector = apiKeyProtector;
+        this.store = store;
     }
 
     public async Task<List<IntegrationDto>> ListAsync(string userNanoid, CancellationToken cancellationToken)
@@ -27,9 +31,7 @@ public class IntegrationService : IIntegrationService
             .ToDictionaryAsync(x => x.Source, cancellationToken);
 
         return Enum.GetValues<HealthDataSource>()
-            .Select(source => connected.TryGetValue(source, out var integration)
-                ? ToDto(integration)
-                : new IntegrationDto { Source = source, Connected = false })
+            .Select(source => ToDto(source, connected.GetValueOrDefault(source)))
             .ToList();
     }
 
@@ -42,14 +44,22 @@ public class IntegrationService : IIntegrationService
 
         var user = await db.Users.SingleOrDefaultAsync(x => x.Nanoid == userNanoid, cancellationToken)
                    ?? throw new NotFoundException($"User {userNanoid} does not exist.");
-        return ToDto(await StoreAsync(user, source, apiKey, cancellationToken));
+        return ToDto(source, await StoreAsync(user, source, apiKey, cancellationToken));
     }
 
     public async Task DisconnectAsync(string userNanoid, HealthDataSource source, CancellationToken cancellationToken)
     {
-        await db.UserIntegrations
-            .Where(x => x.User.Nanoid == userNanoid && x.Source == source)
-            .ExecuteDeleteAsync(cancellationToken);
+        var integration = await db.UserIntegrations
+            .SingleOrDefaultAsync(x => x.User.Nanoid == userNanoid && x.Source == source, cancellationToken);
+        if (integration is null)
+            return;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        if (HealthDataAdapters.Describe(source).DeletesDataOnDisconnect)
+            await store.DeleteSourceDataAsync(integration.UserId, source, cancellationToken);
+        db.UserIntegrations.Remove(integration);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task SetApiKeyWithoutValidationAsync(string email, HealthDataSource source, string apiKey,
@@ -67,7 +77,7 @@ public class IntegrationService : IIntegrationService
             .SingleOrDefaultAsync(x => x.UserId == user.Id && x.Source == source, cancellationToken);
         if (integration is null)
         {
-            integration = new UserIntegration { User = user, Source = source, ProtectedApiKey = "", ApiKeyHint = "" };
+            integration = new UserIntegration { User = user, Source = source, ProtectedApiKey = "" };
             db.UserIntegrations.Add(integration);
         }
 
@@ -79,15 +89,22 @@ public class IntegrationService : IIntegrationService
 
     private static string Hint(string apiKey) => apiKey.Length <= 4 ? "…" : "…" + apiKey[^4..];
 
-    private static IntegrationDto ToDto(UserIntegration integration)
+    private static IntegrationDto ToDto(HealthDataSource source, UserIntegration? integration)
     {
+        var descriptor = HealthDataAdapters.Describe(source);
         return new IntegrationDto
         {
-            Source = integration.Source,
-            Connected = true,
-            ApiKeyHint = integration.ApiKeyHint,
-            FirstDataDate = integration.FirstDataDate,
-            SummariesImportedAt = integration.SummariesImportedAt,
+            Source = source,
+            AuthKind = descriptor.AuthKind,
+            Capabilities = descriptor.Capabilities,
+            DeletesDataOnDisconnect = descriptor.DeletesDataOnDisconnect,
+            Connected = integration is not null,
+            ApiKeyHint = integration?.ApiKeyHint,
+            AccountName = integration?.AccountName,
+            FirstDataDate = integration?.FirstDataDate,
+            SummariesImportedAt = integration?.SummariesImportedAt,
+            LastSyncAt = integration?.LastSyncAt,
+            LastSyncError = integration?.LastSyncError,
         };
     }
 }

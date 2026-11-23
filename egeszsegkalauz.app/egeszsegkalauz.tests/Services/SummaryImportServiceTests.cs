@@ -45,12 +45,12 @@ public class SummaryImportServiceTests
         var result = await ImportAsync();
 
         Assert.That(garmin.SummaryRanges.Single(), Is.EqualTo((new DateOnly(2022, 1, 1), Today)));
-        Assert.That((result.From, result.SleepNights, result.Activities, result.RawRecords),
-            Is.EqualTo(((DateOnly?)new DateOnly(2022, 1, 1), 1, 1, 2)));
+        Assert.That(result.From, Is.EqualTo(new DateOnly(2022, 1, 1)));
+        Assert.That(result.Endpoints.Select(x => (x.Endpoint, x.Records)), Is.EqualTo(new[] { ("activity", 1), ("sleep-summaries", 1) }));
 
         await using var db = PostgresFixture.CreateDbContext();
-        Assert.That((await db.SleepSummaries.SingleAsync()).Score, Is.EqualTo(80));
-        Assert.That((await db.ExerciseActivities.SingleAsync()).Name, Is.EqualTo("Futás"));
+        Assert.That((await db.GarminSleepSummaries.SingleAsync()).SleepScoresOverallValue, Is.EqualTo(80));
+        Assert.That((await db.GarminActivities.SingleAsync()).ActivityName, Is.EqualTo("Futás"));
         Assert.That(await db.RawHealthRecords.Select(x => x.Endpoint).ToListAsync(), Is.EquivalentTo(new[] { "sleep-summaries", "activity" }));
         var integration = await db.UserIntegrations.SingleAsync();
         Assert.That((integration.FirstDataDate, integration.SummariesImportedThrough),
@@ -58,13 +58,10 @@ public class SummaryImportServiceTests
     }
 
     [Test]
-    public async Task LaterImportsReReadOnlyTheLastTwoWeeksAndKeepIdsStable()
+    public async Task LaterImportsReReadOnlyTheLastTwoWeeks()
     {
         await ConnectAsync();
         await ImportAsync();
-        string activityNanoid;
-        await using (var db = PostgresFixture.CreateDbContext())
-            activityNanoid = (await db.ExerciseActivities.SingleAsync()).Nanoid;
 
         time.Advance(TimeSpan.FromDays(3));
         await ImportAsync();
@@ -72,8 +69,8 @@ public class SummaryImportServiceTests
         Assert.That(garmin.SummaryRanges[1], Is.EqualTo((Today.AddDays(-14), Today.AddDays(3))));
         await using (var db = PostgresFixture.CreateDbContext())
         {
-            Assert.That((await db.ExerciseActivities.SingleAsync()).Nanoid, Is.EqualTo(activityNanoid));
-            Assert.That(await db.SleepSummaries.CountAsync(), Is.EqualTo(2));
+            Assert.That(await db.GarminActivities.CountAsync(), Is.EqualTo(1));
+            Assert.That(await db.GarminSleepSummaries.CountAsync(), Is.EqualTo(2));
         }
     }
 
@@ -92,14 +89,14 @@ public class SummaryImportServiceTests
     private async Task ConnectAsync()
     {
         await using var db = PostgresFixture.CreateDbContext();
-        await new IntegrationService(db, new HealthDataAdapters(garmin), protector)
+        await new IntegrationService(db, new HealthDataAdapters(garmin, new FakeHevyAdapter()), protector, TestStores.Create(db, time))
             .ConnectAsync(adminNanoid, HealthDataSource.Garmin, FakeGarminAdapter.ValidKey, CancellationToken.None);
     }
 
     private async Task<egeszsegkalauz.services.DTO.SummaryImportResultDto> ImportAsync()
     {
         await using var db = PostgresFixture.CreateDbContext();
-        var service = new SummaryImportService(db, new HealthDataAdapters(garmin), protector, new HealthDataStore(db, time), time);
+        var service = new SummaryImportService(db, new HealthDataAdapters(garmin, new FakeHevyAdapter()), protector, TestStores.Create(db, time), time);
         return await service.ImportAsync(adminNanoid, HealthDataSource.Garmin, CancellationToken.None);
     }
 }

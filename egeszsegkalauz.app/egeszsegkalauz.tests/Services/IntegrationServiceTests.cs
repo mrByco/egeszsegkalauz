@@ -1,7 +1,9 @@
 using egeszsegkalauz.data;
 using egeszsegkalauz.data.Dev;
 using egeszsegkalauz.data.Models;
+using egeszsegkalauz.services.DTO;
 using egeszsegkalauz.services.Exceptions;
+using egeszsegkalauz.services.Services.HealthData;
 using egeszsegkalauz.services.Services.Integrations;
 using egeszsegkalauz.tests.Integrations;
 using Microsoft.AspNetCore.DataProtection;
@@ -27,6 +29,7 @@ public class IntegrationServiceTests
         var integrations = await RunAsync(async (service, nanoid) => await service.ListAsync(nanoid, CancellationToken.None));
 
         Assert.That(integrations.Select(x => x.Source), Is.EqualTo(Enum.GetValues<HealthDataSource>()));
+        Assert.That(integrations.Single(x => x.Source == HealthDataSource.Hevy).AuthKind, Is.EqualTo(IntegrationAuthKind.OAuth));
         Assert.That(integrations.All(x => !x.Connected), Is.True);
     }
 
@@ -73,14 +76,14 @@ public class IntegrationServiceTests
             await service.DisconnectAsync(nanoid, HealthDataSource.Garmin, CancellationToken.None);
             return await service.ListAsync(nanoid, CancellationToken.None);
         });
-        Assert.That(after.Single().Connected, Is.False);
+        Assert.That(after.Single(x => x.Source == HealthDataSource.Garmin).Connected, Is.False);
     }
 
     private async Task<T> RunAsync<T>(Func<IntegrationService, string, Task<T>> action)
     {
         await using var db = PostgresFixture.CreateDbContext();
         var nanoid = await AdminNanoidAsync(db);
-        var service = new IntegrationService(db, new HealthDataAdapters(new FakeGarminAdapter()), protector);
+        var service = new IntegrationService(db, new HealthDataAdapters(new FakeGarminAdapter(), new FakeHevyAdapter()), protector, TestStores.Create(db, TimeProvider.System));
         return await action(service, nanoid);
     }
 

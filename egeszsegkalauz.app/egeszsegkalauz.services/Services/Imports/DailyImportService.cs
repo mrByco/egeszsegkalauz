@@ -121,7 +121,7 @@ public class DailyImportService : IDailyImportService
         var adapter = adapters.DailyFor(job.Source);
         var policy = adapter.Policy;
         pacer.Hold(job.Source, now + policy.MinimumInterval);
-        DailyQueryResult result;
+        SyncChunk result;
         try
         {
             result = await adapter.RunDailyQueryAsync(apiKeyProtector.Unprotect(integration.ProtectedApiKey),
@@ -153,7 +153,7 @@ public class DailyImportService : IDailyImportService
         job.CompletedQueries++;
         try
         {
-            await store.StoreDailyResultAsync(job.User, job.Source, result, cancellationToken);
+            await store.StoreChunkAsync(job.UserId, job.Source, result, cancellationToken);
         }
         catch (Exception e) when (!cancellationToken.IsCancellationRequested)
         {
