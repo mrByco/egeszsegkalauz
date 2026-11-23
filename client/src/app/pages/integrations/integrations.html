@@ -1,0 +1,13 @@
+<div class="flex flex-col gap-4">
+  <h1 class="text-2xl font-semibold">Integrációk</h1>
+
+  @if (integrations.isLoading()) {
+    <span class="loading loading-spinner"></span>
+  } @else if (integrations.error()) {
+    <div role="alert" class="alert alert-error">Az integrációk betöltése nem sikerült.</div>
+  } @else {
+    @for (integration of integrations.value(); track integration.source) {
+      <app-integration-card [integration]="integration" (changed)="replace($event)" />
+    }
+  }
+</div>

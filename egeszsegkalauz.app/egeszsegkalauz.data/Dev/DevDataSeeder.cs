@@ -7,17 +7,19 @@ namespace egeszsegkalauz.data.Dev;
 public static class DevDataSeeder
 {
     public const string DevPassword = "Jelszo123!";
+    public const string AdminEmail = "admin@egeszsegkalauz.local";
+    public const string ViewerEmail = "teszt.elek@egeszsegkalauz.local";
 
     public static async Task SeedAsync(AppDbContext db, CancellationToken cancellationToken = default)
     {
         if (await db.Users.AnyAsync(cancellationToken))
             return;
 
-        var admin = CreateUser("admin@egeszsegkalauz.local");
+        var admin = CreateUser(AdminEmail);
         admin.Roles.Add(await db.Roles.SingleAsync(x => x.IsSystem, cancellationToken));
 
         var viewer = new Role { Name = "Megtekintő", Permissions = [Permission.UsersView, Permission.RolesView] };
-        var tester = CreateUser("teszt.elek@egeszsegkalauz.local");
+        var tester = CreateUser(ViewerEmail);
         tester.Roles.Add(viewer);
 
         db.Users.AddRange(admin, tester);

@@ -7,6 +7,7 @@ egeszsegkalauz.app/            .NET solution (egeszsegkalauz.slnx)
   egeszsegkalauz.api/          controllers, Swagger, startup
   egeszsegkalauz.services/     business logic, DTOs
   egeszsegkalauz.data/         EF Core DbContext, models, migrations, dev database
+  egeszsegkalauz.integrations/ adapters for external health data sources, one folder per source
   egeszsegkalauz.tests/        NUnit, against a real PostgreSQL in Docker
   dev-data/                    optional dev.dump restored into the dev DB on start
 client/                        Angular 22 (zoneless, signals, Tailwind 4 + daisyUI)
@@ -98,6 +99,50 @@ Adding a permission: add the enum member, a Hungarian label in
 `client/src/app/auth/permission-labels.ts` (the build fails without it), and run `./regen-api.sh`.
 Permissions are stored by name, so renaming or removing a member needs a migration that rewrites
 `Roles.Permissions`.
+
+## Health data integrations
+
+Each external source has its own folder in `egeszsegkalauz.integrations` (e.g. `Garmin/`) with an
+adapter service behind an interface, the source's wire models and options. Adapters implement the
+shared contracts in `Common/` and return source-neutral types; they know nothing about the database.
+`HealthDataAdapters` in the services project maps a `HealthDataSource` to its adapter.
+
+Users connect a source on the Integrációk page with their own API key (Garmin: personal Connect API
+key). The key is checked with the source, then stored encrypted with ASP.NET Data Protection, whose keys
+live in the `DataProtectionKeys` table.
+
+Everything a source returns is kept twice: verbatim in `RawHealthRecords` (jsonb, one row per endpoint
+and day, activity or measurement, so fields can be parsed later without downloading again), and parsed
+into typed tables with a `Source` column (`DailyHeartRateSummaries`/`HeartRateSamples`,
+`DailyActivitySummaries`, `SleepSummaries`, `BodyBatteryDailySummaries`/`BodyBatterySamples`,
+`Vo2MaxMeasurements`, `BodyCompositionMeasurements`, `ExerciseActivities`). Re-imports update rows in
+place.
+
+There are two imports, both starting from the first day the source has data for:
+
+- **Summaries** (`ISummaryImportAdapter`) run in the request: the range endpoints (Garmin: daily
+  summaries, sleep, Body Battery, stress, steps, VO2max, wellness activity, weight, activities, HR zones,
+  fitness age). The first Garmin import of ~5 years is ~200 calls and takes a few minutes; later ones
+  re-read only the last two weeks.
+- **Daily details** (`IDailyImportAdapter`) run in the background: starting a job queues one
+  `ImportQueueItems` row per query kind and day (Garmin: intraday heart rate, user summary, sleep) that
+  is not stored yet, plus the last 14 days and any day of the last 30 that came back empty (devices sync
+  late). `DailyImportWorker` drains the queue newest day first.
+  The adapter owns the technique: its query kinds, the minimum interval between calls, the retry policy,
+  and the pause it asks for when rate limited. Any other error counts as a failed attempt, so one bad day
+  cannot stall the queue. Each day is stored in one transaction. Jobs survive restarts; the client polls
+  the job status.
+  Garmin full history is ~5,300 queries, roughly 45 minutes.
+
+In development the seeded users are connected to Garmin when a key is in the API's user-secrets:
+
+```bash
+dotnet user-secrets set DevData:GarminApiKey "<key>" --project egeszsegkalauz.app/egeszsegkalauz.api
+```
+
+Adding a source: add a `HealthDataSource` member, an adapter folder implementing the `Common/`
+interfaces it supports, register it in `AddIntegrations()`, map it in `HealthDataAdapters`, and add its
+label to `client/src/app/integrations/source-labels.ts`.
 
 ## Common tasks
 

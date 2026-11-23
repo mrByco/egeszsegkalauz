@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="egeszsegkalauz.api/egeszsegkalauz.api.csproj" />
   <Project Path="egeszsegkalauz.data/egeszsegkalauz.data.csproj" />
+  <Project Path="egeszsegkalauz.integrations/egeszsegkalauz.integrations.csproj" />
   <Project Path="egeszsegkalauz.services/egeszsegkalauz.services.csproj" />
   <Project Path="egeszsegkalauz.tests/egeszsegkalauz.tests.csproj" />
 </Solution>

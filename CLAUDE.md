@@ -10,8 +10,14 @@ and comments are English.
   non-obvious "why". No doc comments restating names, no banners, no narration in configs, scripts
   or Dockerfiles.
 - Backend layering: `egeszsegkalauz.api` (thin controllers, DI, startup) → `egeszsegkalauz.services`
-  (all logic; DTOs one per file in `DTO/`) → `egeszsegkalauz.data` (EF Core, models, migrations).
-  Controllers hold no business logic and never return `object`.
+  (all logic; DTOs one per file in `DTO/`) → `egeszsegkalauz.data` (EF Core, models, migrations) and
+  `egeszsegkalauz.integrations` (external sources, no database access). Controllers hold no business
+  logic and never return `object`.
+- Each external health data source lives in its own folder in `egeszsegkalauz.integrations`, behind an
+  interface (`I<Source>AdapterService`), with all of its wire models in one `<Source>Models.cs`. Adapters
+  return the source-neutral types from `Common/`, never their wire models, plus the verbatim payload as
+  `RawRecord`s. Pacing, retries and rate-limit handling are the adapter's (`DailyImportPolicy`,
+  `IntegrationRateLimitedException`); the generic queue in the services only follows them.
 - DTOs and service results are classes with one property per value, `required` on every non-nullable
   one. No positional (inline) records.
 - No primary constructors: write an explicit constructor and keep dependencies in
@@ -22,7 +28,8 @@ and comments are English.
 - Package versions live only in `egeszsegkalauz.app/Directory.Packages.props` (central package
   management); shared MSBuild settings in `Directory.Build.props`.
 - Entities derive from `Entity`: the integer `Id` stays inside `egeszsegkalauz.data`; the API exposes
-  `Nanoid`. `CreatedAt`/`UpdatedAt` are stamped by `AppDbContext` — don't set them by hand.
+  `Nanoid`. `CreatedAt`/`UpdatedAt` are stamped by `AppDbContext` — don't set them by hand. Exception:
+  high-volume time series (e.g. `HeartRateSample`) use a natural composite key instead.
 - Swagger marks non-nullable C# properties as required (`RequireNonNullablePropertiesSchemaFilter`), so
   nullability in DTOs is what the generated TypeScript types get.
 - `client/src/app/api/` is generated: after any controller or DTO change run `./regen-api.sh`.
@@ -30,8 +37,11 @@ and comments are English.
   from `wwwroot`). Keep API routes under `/api`, call them with relative URLs, and don't add CORS.
 - Authorization is permission-based: guard endpoints with `[HasPermission(Permission.X)]`, never with
   role names. On the client use `auth.can('X')` and `permissionGuard('X')`.
-- Services signal "not found" and "conflict" by throwing `NotFoundException` / `ConflictException`;
-  `ServiceExceptionHandler` turns them into 404/409 ProblemDetails. Controllers don't catch them.
+- Services signal errors by throwing `NotFoundException` (404), `ConflictException` (409) or
+  `InvalidInputException` (400); adapters throw `IntegrationUnavailableException` (502).
+  `ServiceExceptionHandler` turns them into ProblemDetails. Controllers don't catch them.
+- Secrets (third-party API keys) are never committed: dev values go in the API's user-secrets, stored
+  values are encrypted with `IApiKeyProtector`.
 - Dev fixtures belong in `DevDataSeeder`, or in a `dev-data/dev.dump` made with `./dev-db.sh dump`.
 
 ## Gotchas

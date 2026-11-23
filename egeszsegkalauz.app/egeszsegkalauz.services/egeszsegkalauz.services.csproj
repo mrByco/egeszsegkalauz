@@ -2,10 +2,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\egeszsegkalauz.data\egeszsegkalauz.data.csproj" />
+    <ProjectReference Include="..\egeszsegkalauz.integrations\egeszsegkalauz.integrations.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection" />
   </ItemGroup>
 
 </Project>

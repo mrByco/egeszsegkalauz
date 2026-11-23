@@ -2,6 +2,12 @@
   <header class="navbar gap-2 bg-base-100 px-4 shadow-sm">
     <a class="text-xl font-semibold" routerLink="/">Egészségkalauz</a>
     <nav class="flex flex-1 gap-1 pl-4">
+      @if (auth.user()) {
+        <a class="btn btn-ghost btn-sm" routerLink="/pulzus" routerLinkActive="btn-active">Pulzus</a>
+        <a class="btn btn-ghost btn-sm" routerLink="/integraciok" routerLinkActive="btn-active">
+          Integrációk
+        </a>
+      }
       @if (auth.can('UsersView')) {
         <a class="btn btn-ghost btn-sm" routerLink="/admin/felhasznalok" routerLinkActive="btn-active">
           Felhasználók

@@ -15,6 +15,16 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/register/register').then((m) => m.Register),
   },
   {
+    path: 'pulzus',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/heart-rate/heart-rate').then((m) => m.HeartRate),
+  },
+  {
+    path: 'integraciok',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/integrations/integrations').then((m) => m.Integrations),
+  },
+  {
     path: 'admin',
     canActivate: [authGuard],
     children: [

@@ -1,3 +1,4 @@
+using egeszsegkalauz.integrations.Common;
 using egeszsegkalauz.services.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +20,9 @@ public class ServiceExceptionHandler : IExceptionHandler
         {
             NotFoundException => StatusCodes.Status404NotFound,
             ConflictException => StatusCodes.Status409Conflict,
+            InvalidInputException => StatusCodes.Status400BadRequest,
+            IntegrationKeyRejectedException => StatusCodes.Status400BadRequest,
+            IntegrationUnavailableException => StatusCodes.Status502BadGateway,
             _ => null,
         };
         if (status is null)

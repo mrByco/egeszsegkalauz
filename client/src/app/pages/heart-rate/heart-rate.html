@@ -1,0 +1,54 @@
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+    <div class="flex items-center justify-between">
+      <h1 class="card-title">Pulzus</h1>
+      <div class="join">
+        @for (option of dayOptions; track option) {
+          <button
+            class="btn join-item btn-sm"
+            type="button"
+            [class.btn-active]="days() === option"
+            (click)="days.set(option)"
+          >
+            {{ option }} nap
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (daily.isLoading()) {
+      <span class="loading loading-spinner"></span>
+    } @else if (daily.error()) {
+      <div role="alert" class="alert alert-error">A pulzusadatok betöltése nem sikerült.</div>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Nap</th>
+            <th>Nyugalmi</th>
+            <th>Min.</th>
+            <th>Max.</th>
+            <th>Mérések</th>
+            <th>Forrás</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (day of daily.value(); track day.date + day.source) {
+            <tr>
+              <td>{{ day.date | date: 'yyyy.MM.dd.' }}</td>
+              <td>{{ day.restingBpm ?? '–' }}</td>
+              <td>{{ day.minBpm ?? '–' }}</td>
+              <td>{{ day.maxBpm ?? '–' }}</td>
+              <td>{{ day.sampleCount }}</td>
+              <td>{{ sourceLabels[day.source] }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6">Nincs pulzusadat. Importálj az Integrációk oldalon.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>

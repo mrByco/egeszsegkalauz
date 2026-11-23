@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using egeszsegkalauz.api.Auth;
 using egeszsegkalauz.api.Extensions;
+using egeszsegkalauz.api.Workers;
 using egeszsegkalauz.services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,6 +17,7 @@ builder.Services.AddExceptionHandler<ServiceExceptionHandler>();
 await using var devDatabase = await builder.AddAppDatabaseAsync();
 builder.Services.AddAppServices();
 builder.Services.AddAppAuthentication();
+builder.Services.AddHostedService<DailyImportWorker>();
 
 var app = builder.Build();
 

@@ -1,6 +1,8 @@
 using egeszsegkalauz.data;
 using egeszsegkalauz.data.Dev;
 using egeszsegkalauz.data.Extensions;
+using egeszsegkalauz.data.Models;
+using egeszsegkalauz.services.Services.Integrations;
 using egeszsegkalauz.services.Services.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,7 +39,10 @@ public static class DatabaseStartupExtensions
         await db.Database.MigrateAsync();
 
         if (seedDevData)
+        {
             await DevDataSeeder.SeedAsync(db);
+            await SeedDevGarminKeyAsync(app, scope.ServiceProvider);
+        }
 
         var adminEmail = app.Configuration["Bootstrap:AdminEmail"];
         if (!string.IsNullOrWhiteSpace(adminEmail)
@@ -45,5 +50,17 @@ public static class DatabaseStartupExtensions
         {
             app.Logger.LogInformation("Granted the Admin role to {Email}, as no user had it.", adminEmail);
         }
+    }
+
+    private static async Task SeedDevGarminKeyAsync(WebApplication app, IServiceProvider services)
+    {
+        var apiKey = app.Configuration["DevData:GarminApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+            return;
+
+        var integrationService = services.GetRequiredService<IIntegrationService>();
+        foreach (var email in new[] { DevDataSeeder.AdminEmail, DevDataSeeder.ViewerEmail })
+            await integrationService.SetApiKeyWithoutValidationAsync(email, HealthDataSource.Garmin, apiKey, CancellationToken.None);
+        app.Logger.LogInformation("Connected the dev users to Garmin with DevData:GarminApiKey.");
     }
 }
